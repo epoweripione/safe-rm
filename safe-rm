@@ -1,0 +1,162 @@
+#!/usr/bin/perl
+
+=head1 NAME
+
+safe-rm - wrapper around the rm command to prevent accidental deletions
+
+=head1 SYNOPSIS
+
+safe-rm [ ... ]
+(same arguments as rm)
+
+=head1 DESCRIPTION
+
+safe-rm prevents the accidental deletion of important files by
+replacing rm with a wrapper which checks the given arguments against a
+configurable blacklist of files and directories which should never be
+removed.
+
+Users who attempt to delete one of these protected files or
+directories will not be able to do so and will be shown a warning
+message instead.
+
+safe-rm is meant to replace the rm command so you can achieve this by
+putting a symbolic link with the name "rm" in a directory which sits
+at the front of your path. For example, given this path:
+
+  PATH=/usr/local/bin:/bin:/usr/bin
+
+You could create the following symlink:
+
+  ln -s /usr/local/bin/safe-rm /usr/local/bin/rm
+
+=head1 CONFIGURATION FILES
+
+Protected paths can be set both at the site and user levels.
+
+Both of these configuation files can contain a list of important files
+or directories (one per line):
+
+  /etc/safe-rm.conf
+  ~/.safe-rm
+
+If both of these are empty, a default list of important paths will be
+used.
+
+=head1 AUTHOR
+
+Francois Marier <francois@debian.org>
+
+=head1 SEE ALSO
+
+rm(1)
+
+=head1 COPYRIGHT
+
+Copyright (C) 2008 Francois Marier <francois@debian.org>
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+=cut
+ 
+use warnings;
+use strict;
+use Cwd 'realpath';
+
+my %default_protected_dirs = ( '/bin' => 1,
+                               '/boot' => 1,
+                               '/dev' => 1,
+                               '/etc' => 1,
+                               '/home' => 1,
+                               '/initrd' => 1,
+                               '/lib' => 1,
+                               '/proc' => 1,
+                               '/root' => 1,
+                               '/sbin' => 1,
+                               '/sys' => 1,
+                               '/usr' => 1,
+                               '/usr/bin' => 1,
+                               '/usr/include' => 1,
+                               '/usr/lib' => 1,
+                               '/usr/local' => 1,
+                               '/usr/local/bin' => 1,
+                               '/usr/local/include' => 1,
+                               '/usr/local/sbin' => 1,
+                               '/usr/local/share' => 1,
+                               '/usr/sbin' => 1,
+                               '/usr/share' => 1,
+                               '/usr/src' => 1,
+                               '/var' => 1,
+);
+
+my %protected_dirs = ();
+
+# Read in system-wide configuration file
+if (open(SYSTEMWIDE, '<', '/etc/safe-rm.conf')) {
+    while (<SYSTEMWIDE>) {
+        chomp;
+        $protected_dirs{$_} = 1;
+    }
+    close(SYSTEMWIDE);
+}
+
+# Read in user configuration file
+my $homedir = $ENV{HOME} || '';
+if (open(USERCONFIG, '<', "$homedir/.safe-rm")) {
+    while (<USERCONFIG>) {
+        chomp;
+        $protected_dirs{$_} = 1;
+    }
+    close(USERCONFIG);
+}
+
+if (0 == scalar keys %protected_dirs) {
+    %protected_dirs = %default_protected_dirs;
+}
+
+my @allowed_args = ();
+for (my $i = 0; $i <= $#ARGV; $i++) {
+    my $pathname = $ARGV[$i];
+
+    # Normalize the pathname
+    my $normalized_pathname = $pathname;
+    if ($normalized_pathname =~ m|/|) {
+        # Convert to an absolute path (e.g. remove "..")
+        $normalized_pathname = realpath($normalized_pathname);
+        $normalized_pathname = $pathname unless $normalized_pathname;
+    }
+    if ($normalized_pathname =~ m|^(.*?)/+$|) {
+        # Trim trailing slashes
+        $normalized_pathname = $1;
+    }
+
+    # Check against the blacklist
+    if (exists($protected_dirs{$normalized_pathname})) {
+        print STDERR "Skipping $pathname\n";
+    } else {
+        push @allowed_args, $pathname;
+    }
+}
+
+# Run rm if there is at least one argument left
+my $errcode = 0;
+if (@allowed_args > 0) {
+    my $real_rm = '/bin/rm';
+    if (realpath($real_rm) eq realpath($0)) {
+        die 'Cannot find the real "rm" binary';
+    }
+    my $status = system($real_rm, @allowed_args);
+    $errcode = $status >> 8;
+}
+exit $errcode;

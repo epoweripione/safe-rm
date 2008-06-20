@@ -1,0 +1,9 @@
+0.2 (2008-06-09)
+  - Add support for system-wide protected path list
+  - Add support for user-specific protected path list
+  - Better instructions in the POD manpage
+  - Check for infinite loops before using the "real" rm
+  - Restore the original pathname when realpath fails
+
+0.1 (2008-06-08)
+  - Initial public release
