@@ -1,0 +1,10 @@
+Summary: rename the binary to srm
+Status: New
+CreatedBy: Francois Marier <francois@debian.org>
+AssignedTo: Francois Marier <francois@debian.org>
+Label: enhancement
+Inserted: 2008-07-01T03:11:09
+Updated: 2008-07-01T03:11:09
+
+People who want to use safe-rm directly (and not divert the real rm
+command) won't want to type the full command-name.
