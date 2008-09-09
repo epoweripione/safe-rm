@@ -1,3 +1,7 @@
+0.3 (2008-09-09)
+  - Look at the full path of files in the current directory to make sure they are
+    checked against the blacklist (thanks to Yi-Feng Tzeng!)
+
 0.2 (2008-06-09)
   - Add support for system-wide protected path list
   - Add support for user-specific protected path list

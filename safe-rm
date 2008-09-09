@@ -131,7 +131,7 @@ for (my $i = 0; $i <= $#ARGV; $i++) {
 
     # Normalize the pathname
     my $normalized_pathname = $pathname;
-    if ($normalized_pathname =~ m|/|) {
+    if ($normalized_pathname =~ m|/| or -e "$normalized_pathname") {
         # Convert to an absolute path (e.g. remove "..")
         $normalized_pathname = realpath($normalized_pathname);
         $normalized_pathname = $pathname unless $normalized_pathname;
