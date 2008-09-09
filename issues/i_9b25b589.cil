@@ -1,0 +1,15 @@
+Summary: Files in local directory are not protected
+Status: Finished
+CreatedBy: Yi-Feng Tzeng <yftzeng@gmail.com>
+AssignedTo: Francois Marier <francois@debian.org>
+Label: bug
+Attachment: fb33c51a
+Inserted: 2008-09-09T01:34:58
+Updated: 2008-09-09T01:42:42
+
+I found if I add '/home/bob' to config file (/etc/safe-rm.conf).
+It does not work, when
+
+cd /home ; rm -rf bob
+
+/home/bob still removed.
