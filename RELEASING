@@ -1,0 +1,5 @@
+0- tag and push the code
+1- build the tarball using "make dist"
+2- upload the tarball to Google Code
+3- announce the release on Freshmeat
+4- update and upload the Debian package
