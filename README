@@ -14,6 +14,27 @@ Copyright (C) 2008  Francois Marier <francois@debian.org>
    You should have received a copy of the GNU General Public License
    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+How to use
+-----------
+
+Once you have installed safe-rm on your system (see INSTALL), you will need to
+fill the system-wide or user-specific blacklists with the paths that you'd like
+to protect against accidental deletion.
+
+The system-wide blacklist lives in /etc/safe-rm.conf and you should probably add
+paths like these:
+
+  /etc
+  /usr
+  /usr/lib
+  /var
+
+The user-specific blacklist lives in ~/.safe-rm and could include things like:
+
+  /home/username/documents
+  /home/username/.mozilla
+
+
 Other approaches
 -----------------
 
