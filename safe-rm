@@ -136,7 +136,7 @@ for (my $i = 0; $i <= $#ARGV; $i++) {
         $normalized_pathname = realpath($normalized_pathname);
         $normalized_pathname = $pathname unless $normalized_pathname;
     }
-    if ($normalized_pathname =~ m|^(.*?)/+$|) {
+    if ($normalized_pathname =~ m|^(.+?)/+$|) {
         # Trim trailing slashes
         $normalized_pathname = $1;
     }
