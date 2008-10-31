@@ -1,4 +1,6 @@
-safe-rm - prevention of accidental deletions using a directory blacklist
+safe-rm - http://www.safe-rm.org.nz
+prevention of accidental deletions using a directory blacklist
+
 Copyright (C) 2008  Francois Marier <francois@debian.org>
 
    This program is free software: you can redistribute it and/or modify

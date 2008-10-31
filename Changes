@@ -1,5 +1,6 @@
 0.4 (UNRELEASED)
   - Add some setup instructions in the README file
+  - Mention the new homepage in the README file
 
 0.3 (2008-09-09)
   - Look at the full path of files in the current directory to make sure they are
