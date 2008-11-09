@@ -149,14 +149,12 @@ for (my $i = 0; $i <= $#ARGV; $i++) {
     }
 }
 
-# Run rm if there is at least one argument left
+# Run rm
 my $errcode = 0;
-if (@allowed_args > 0) {
-    my $real_rm = '/bin/rm';
-    if (realpath($real_rm) eq realpath($0)) {
-        die 'Cannot find the real "rm" binary';
-    }
-    my $status = system($real_rm, @allowed_args);
-    $errcode = $status >> 8;
+my $real_rm = '/bin/rm';
+if (realpath($real_rm) eq realpath($0)) {
+    die 'Cannot find the real "rm" binary';
 }
+my $status = system($real_rm, @allowed_args);
+$errcode = $status >> 8;
 exit $errcode;
