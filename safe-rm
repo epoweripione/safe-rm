@@ -103,22 +103,22 @@ my %default_protected_dirs = ( '/bin' => 1,
 my %protected_dirs = ();
 
 # Read in system-wide configuration file
-if (open(SYSTEMWIDE, '<', '/etc/safe-rm.conf')) {
-    while (<SYSTEMWIDE>) {
+if (open my $systemwide_cfg, '<', '/etc/safe-rm.conf') {
+    while (<$systemwide_cfg>) {
         chomp;
         $protected_dirs{$_} = 1;
     }
-    close(SYSTEMWIDE);
+    close($systemwide_cfg);
 }
 
 # Read in user configuration file
 my $homedir = $ENV{HOME} || '';
-if (open(USERCONFIG, '<', "$homedir/.safe-rm")) {
-    while (<USERCONFIG>) {
+if (open my $user_cfg, '<', "$homedir/.safe-rm") {
+    while (<$user_cfg>) {
         chomp;
         $protected_dirs{$_} = 1;
     }
-    close(USERCONFIG);
+    close($user_cfg);
 }
 
 if (0 == scalar keys %protected_dirs) {
@@ -126,17 +126,19 @@ if (0 == scalar keys %protected_dirs) {
 }
 
 my @allowed_args = ();
-for (my $i = 0; $i <= $#ARGV; $i++) {
-    my $pathname = $ARGV[$i];
+foreach (@ARGV) {
+    my $pathname = $_;
 
     # Normalize the pathname
     my $normalized_pathname = $pathname;
     if ($normalized_pathname =~ m|/| or -e "$normalized_pathname") {
         # Convert to an absolute path (e.g. remove "..")
         $normalized_pathname = realpath($normalized_pathname);
-        $normalized_pathname = $pathname unless $normalized_pathname;
+        if (!$normalized_pathname) {
+            $normalized_pathname = $pathname;
+        }
     }
-    if ($normalized_pathname =~ m|^(.+?)/+$|) {
+    if ($normalized_pathname =~ m|^(.+?)/+$|ms) {
         # Trim trailing slashes
         $normalized_pathname = $1;
     }
@@ -153,7 +155,7 @@ for (my $i = 0; $i <= $#ARGV; $i++) {
 my $errcode = 0;
 my $real_rm = '/bin/rm';
 if (realpath($real_rm) eq realpath($0)) {
-    die 'Cannot find the real "rm" binary';
+    die 'Cannot find the real "rm" binary'."\n";
 }
 my $status = system($real_rm, @allowed_args);
 $errcode = $status >> 8;
