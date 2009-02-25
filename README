@@ -66,3 +66,8 @@ all unlink(), rename() and open() system calls through the LD_PRELOAD facility:
 
   libtrashcan
   http://hpux.connect.org.uk/hppd/hpux/Development/Libraries/libtrash-0.2/readme.html
+
+There are also projects which implement the FreeDesktop.org trashcan spec. For example:
+
+  trash-cli
+  http://code.google.com/p/trash-cli/
