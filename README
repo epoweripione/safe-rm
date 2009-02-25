@@ -1,7 +1,7 @@
 safe-rm - http://www.safe-rm.org.nz
 prevention of accidental deletions using a directory blacklist
 
-Copyright (C) 2008  Francois Marier <francois@debian.org>
+Copyright (C) 2008-2009  Francois Marier <francois@safe-rm.org.nz>
 
    This program is free software: you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by

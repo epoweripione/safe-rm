@@ -45,7 +45,7 @@ used.
 
 =head1 AUTHOR
 
-Francois Marier <francois@debian.org>
+Francois Marier <francois@safe-rm.org.nz>
 
 =head1 SEE ALSO
 
@@ -53,7 +53,7 @@ rm(1)
 
 =head1 COPYRIGHT
 
-Copyright (C) 2008 Francois Marier <francois@debian.org>
+Copyright (C) 2008-2009 Francois Marier
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
