@@ -7,40 +7,41 @@ use Cwd 'realpath';
 
 our $VERSION = '0.5';
 
-my $homedir = $ENV{HOME} || q{};
-my $USER_CONFIG_FILE = "$homedir/.safe-rm";
+my $homedir            = $ENV{HOME} || q{};
+my $USER_CONFIG_FILE   = "$homedir/.safe-rm";
 my $GLOBAL_CONFIG_FILE = '/etc/safe-rm.conf';
 
-my %default_protected_dirs = ( '/bin' => 1,
-                               '/boot' => 1,
-                               '/dev' => 1,
-                               '/etc' => 1,
-                               '/home' => 1,
-                               '/initrd' => 1,
-                               '/lib' => 1,
-                               '/proc' => 1,
-                               '/root' => 1,
-                               '/sbin' => 1,
-                               '/sys' => 1,
-                               '/usr' => 1,
-                               '/usr/bin' => 1,
-                               '/usr/include' => 1,
-                               '/usr/lib' => 1,
-                               '/usr/local' => 1,
-                               '/usr/local/bin' => 1,
-                               '/usr/local/include' => 1,
-                               '/usr/local/sbin' => 1,
-                               '/usr/local/share' => 1,
-                               '/usr/sbin' => 1,
-                               '/usr/share' => 1,
-                               '/usr/src' => 1,
-                               '/var' => 1,
+my %default_protected_dirs = (
+    '/bin'               => 1,
+    '/boot'              => 1,
+    '/dev'               => 1,
+    '/etc'               => 1,
+    '/home'              => 1,
+    '/initrd'            => 1,
+    '/lib'               => 1,
+    '/proc'              => 1,
+    '/root'              => 1,
+    '/sbin'              => 1,
+    '/sys'               => 1,
+    '/usr'               => 1,
+    '/usr/bin'           => 1,
+    '/usr/include'       => 1,
+    '/usr/lib'           => 1,
+    '/usr/local'         => 1,
+    '/usr/local/bin'     => 1,
+    '/usr/local/include' => 1,
+    '/usr/local/sbin'    => 1,
+    '/usr/local/share'   => 1,
+    '/usr/sbin'          => 1,
+    '/usr/share'         => 1,
+    '/usr/src'           => 1,
+    '/var'               => 1,
 );
 
 my %protected_dirs = ();
 
 # Read in system-wide configuration file
-if (-r $GLOBAL_CONFIG_FILE) {
+if ( -r $GLOBAL_CONFIG_FILE ) {
     open my $systemwide_cfg, '<', $GLOBAL_CONFIG_FILE;
     while (<$systemwide_cfg>) {
         chomp;
@@ -50,7 +51,7 @@ if (-r $GLOBAL_CONFIG_FILE) {
 }
 
 # Read in user configuration file
-if (-r $USER_CONFIG_FILE) {
+if ( -r $USER_CONFIG_FILE ) {
     open my $user_cfg, '<', $USER_CONFIG_FILE;
     while (<$user_cfg>) {
         chomp;
@@ -59,7 +60,7 @@ if (-r $USER_CONFIG_FILE) {
     close $user_cfg;
 }
 
-if (0 == scalar keys %protected_dirs) {
+if ( 0 == scalar keys %protected_dirs ) {
     %protected_dirs = %default_protected_dirs;
 }
 
@@ -69,34 +70,37 @@ foreach (@ARGV) {
 
     # Normalize the pathname
     my $normalized_pathname = $pathname;
-    if ($normalized_pathname =~ m{/}xms or -e "$normalized_pathname") {
+    if ( $normalized_pathname =~ m{/}xms or -e "$normalized_pathname" ) {
+
         # Convert to an absolute path (e.g. remove "..")
         $normalized_pathname = realpath($normalized_pathname);
-        if (!$normalized_pathname) {
+        if ( !$normalized_pathname ) {
             $normalized_pathname = $pathname;
         }
     }
-    if ($normalized_pathname =~ m{^(.+?)/+$}xms) {
+    if ( $normalized_pathname =~ m{^(.+?)/+$}xms ) {
+
         # Trim trailing slashes
         $normalized_pathname = $1;
     }
 
     # Check against the blacklist
-    if (exists $protected_dirs{$normalized_pathname}) {
+    if ( exists $protected_dirs{$normalized_pathname} ) {
         print {*STDERR} "Skipping $pathname\n" || 0;
-    } else {
+    }
+    else {
         push @allowed_args, $pathname;
     }
 }
 
 # Prepare for actually deleting the file
-local $ENV{PATH} = q{}; # Because of taintness
+local $ENV{PATH} = q{};    # Because of taintness
 my $real_rm = '/bin/rm';
 
 # Make sure we're not calling ourselves recursively
 use English '-no_match_vars';
-if (realpath($real_rm) eq realpath($PROGRAM_NAME)) {
-    die 'Cannot find the real "rm" binary'."\n";
+if ( realpath($real_rm) eq realpath($PROGRAM_NAME) ) {
+    die 'Cannot find the real "rm" binary' . "\n";
 }
 
 # Run the real rm command
