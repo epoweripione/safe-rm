@@ -1,6 +1,8 @@
-0- tag and push the code
-1- build the tarball using "make dist"
-2- upload the tarball to Google Code (http://code.google.com/p/safe-rm/downloads/list)
-3- announce the release on Freshmeat (http://freshmeat.net/projects/safe-rm/)
-4- update and upload the Debian package
-5- add a new post on the safe-rm blog (http://www.safe-rm.org.nz)
+- update and date the changelog
+- bump the version number in the source file
+- tag and push the code
+- build the tarball using "make dist"
+- upload the tarball to Google Code (http://code.google.com/p/safe-rm/downloads/list)
+- announce the release on Freshmeat (http://freshmeat.net/projects/safe-rm/)
+- update and upload the Debian package
+- add a new post on the safe-rm blog (http://www.safe-rm.org.nz)
