@@ -88,13 +88,13 @@ foreach (@ARGV) {
     if ( exists $protected_dirs{$normalized_pathname} ) {
         print {*STDERR} "Skipping $pathname\n" || 0;
     }
-    else {
-        push @allowed_args, $pathname;
+    elsif ( $pathname =~ /(.*)/xms ) {    # pointless untainting
+        push @allowed_args, $1;
     }
 }
 
 # Prepare for actually deleting the file
-local $ENV{PATH} = q{};    # Because of taintness
+local $ENV{PATH} = q{};                   # pointless untainting
 my $real_rm = '/bin/rm';
 
 # Make sure we're not calling ourselves recursively
