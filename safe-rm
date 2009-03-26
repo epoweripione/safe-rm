@@ -107,7 +107,7 @@ if ( realpath($real_rm) eq realpath($PROGRAM_NAME) ) {
 my $status = system $real_rm, @allowed_args;
 
 # Make our exit code the one returned by the real rm
-use use Readonly;
+use Readonly;
 Readonly::Scalar my $ONE_BYTE => 8;
 my $errcode = $status >> $ONE_BYTE;
 exit $errcode;
