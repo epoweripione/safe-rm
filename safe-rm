@@ -1,78 +1,15 @@
-#!/usr/bin/perl
+#!/usr/bin/perl -t
 
-=head1 NAME
-
-safe-rm - wrapper around the rm command to prevent accidental deletions
-
-=head1 SYNOPSIS
-
-safe-rm [ ... ]
-(same arguments as rm)
-
-=head1 DESCRIPTION
-
-safe-rm prevents the accidental deletion of important files by
-replacing rm with a wrapper which checks the given arguments against a
-configurable blacklist of files and directories which should never be
-removed.
-
-Users who attempt to delete one of these protected files or
-directories will not be able to do so and will be shown a warning
-message instead.
-
-safe-rm is meant to replace the rm command so you can achieve this by
-putting a symbolic link with the name "rm" in a directory which sits
-at the front of your path. For example, given this path:
-
-  PATH=/usr/local/bin:/bin:/usr/bin
-
-You could create the following symlink:
-
-  ln -s /usr/local/bin/safe-rm /usr/local/bin/rm
-
-=head1 CONFIGURATION FILES
-
-Protected paths can be set both at the site and user levels.
-
-Both of these configuation files can contain a list of important files
-or directories (one per line):
-
-  /etc/safe-rm.conf
-  ~/.safe-rm
-
-If both of these are empty, a default list of important paths will be
-used.
-
-=head1 AUTHOR
-
-Francois Marier <francois@safe-rm.org.nz>
-
-=head1 SEE ALSO
-
-rm(1)
-
-=head1 COPYRIGHT
-
-Copyright (C) 2008-2009 Francois Marier
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program.  If not, see <http://www.gnu.org/licenses/>.
-
-=cut
- 
 use warnings;
 use strict;
+use autodie;
 use Cwd 'realpath';
+
+our $VERSION = '0.5';
+
+my $homedir = $ENV{HOME} || q{};
+my $USER_CONFIG_FILE = "$homedir/.safe-rm";
+my $GLOBAL_CONFIG_FILE = '/etc/safe-rm.conf';
 
 my %default_protected_dirs = ( '/bin' => 1,
                                '/boot' => 1,
@@ -103,22 +40,23 @@ my %default_protected_dirs = ( '/bin' => 1,
 my %protected_dirs = ();
 
 # Read in system-wide configuration file
-if (open my $systemwide_cfg, '<', '/etc/safe-rm.conf') {
+if (-r $GLOBAL_CONFIG_FILE) {
+    open my $systemwide_cfg, '<', $GLOBAL_CONFIG_FILE;
     while (<$systemwide_cfg>) {
         chomp;
         $protected_dirs{$_} = 1;
     }
-    close($systemwide_cfg);
+    close $systemwide_cfg;
 }
 
 # Read in user configuration file
-my $homedir = $ENV{HOME} || '';
-if (open my $user_cfg, '<', "$homedir/.safe-rm") {
+if (-r $USER_CONFIG_FILE) {
+    open my $user_cfg, '<', $USER_CONFIG_FILE;
     while (<$user_cfg>) {
         chomp;
         $protected_dirs{$_} = 1;
     }
-    close($user_cfg);
+    close $user_cfg;
 }
 
 if (0 == scalar keys %protected_dirs) {
@@ -131,32 +69,151 @@ foreach (@ARGV) {
 
     # Normalize the pathname
     my $normalized_pathname = $pathname;
-    if ($normalized_pathname =~ m|/| or -e "$normalized_pathname") {
+    if ($normalized_pathname =~ m{/}xms or -e "$normalized_pathname") {
         # Convert to an absolute path (e.g. remove "..")
         $normalized_pathname = realpath($normalized_pathname);
         if (!$normalized_pathname) {
             $normalized_pathname = $pathname;
         }
     }
-    if ($normalized_pathname =~ m|^(.+?)/+$|ms) {
+    if ($normalized_pathname =~ m{^(.+?)/+$}xms) {
         # Trim trailing slashes
         $normalized_pathname = $1;
     }
 
     # Check against the blacklist
-    if (exists($protected_dirs{$normalized_pathname})) {
-        print STDERR "Skipping $pathname\n";
+    if (exists $protected_dirs{$normalized_pathname}) {
+        print {*STDERR} "Skipping $pathname\n" || 0;
     } else {
         push @allowed_args, $pathname;
     }
 }
 
-# Run rm
-my $errcode = 0;
+# Prepare for actually deleting the file
+local $ENV{PATH} = q{}; # Because of taintness
 my $real_rm = '/bin/rm';
-if (realpath($real_rm) eq realpath($0)) {
+
+# Make sure we're not calling ourselves recursively
+use English '-no_match_vars';
+if (realpath($real_rm) eq realpath($PROGRAM_NAME)) {
     die 'Cannot find the real "rm" binary'."\n";
 }
-my $status = system($real_rm, @allowed_args);
-$errcode = $status >> 8;
+
+# Run the real rm command
+my $status = system $real_rm, @allowed_args;
+
+# Make our exit code the one returned by the real rm
+use use Readonly;
+Readonly::Scalar my $ONE_BYTE => 8;
+my $errcode = $status >> $ONE_BYTE;
 exit $errcode;
+
+__END__
+
+=head1 NAME
+
+safe-rm - wrapper around the rm command to prevent accidental deletions
+
+=head1 USAGE
+
+safe-rm [ ... ]
+(same arguments as rm)
+
+=head1 DESCRIPTION
+
+safe-rm prevents the accidental deletion of important files by
+replacing rm with a wrapper which checks the given arguments against a
+configurable blacklist of files and directories which should never be
+removed.
+
+Users who attempt to delete one of these protected files or
+directories will not be able to do so and will be shown a warning
+message instead.
+
+safe-rm is meant to replace the rm command so you can achieve this by
+putting a symbolic link with the name "rm" in a directory which sits
+at the front of your path. For example, given this path:
+
+  PATH=/usr/local/bin:/bin:/usr/bin
+
+You could create the following symbolic link:
+
+  ln -s /usr/local/bin/safe-rm /usr/local/bin/rm
+
+=head1 CONFIGURATION
+
+Protected paths can be set both at the site and user levels.
+
+Both of these configuration files can contain a list of important files
+or directories (one per line):
+
+  /etc/safe-rm.conf
+  ~/.safe-rm
+
+If both of these are empty, a default list of important paths will be
+used.
+
+=head1 EXIT STATUS
+
+Same exit status as the real rm command.
+
+Note that if all file arguments are skipped by safe-rm then the exit status
+will be the same as the exit status of the real rm when no files arguments
+are present.
+
+=head1 DEPENDENCIES
+
+=for stopword autodie
+- Perl 5.8 or later
+- autodie
+
+=for stopword CPAN
+autodie is included by default in Perl 5.10 but can also be found on CPAN:
+
+  http://search.cpan.org/dist/autodie/
+
+=head1 BUGS AND LIMITATIONS
+
+Note that if you put the following in your protected paths list:
+
+  $ cat /etc/safe-rm.conf
+  /usr/lib
+
+Then safe-rm will prevent you from deleting the directory:
+
+  $ rm -rf /usr/lib
+  Skipping /usr/lib
+  /bin/rm: missing operand
+  Try `/bin/rm --help' for more information.
+
+However it cannot protect you from the following:
+
+  $ cd /usr/lib
+  $ rm -f *
+
+=head1 AUTHOR
+
+=for stopword Marier
+Francois Marier <francois@safe-rm.org.nz>
+
+=head1 SEE ALSO
+
+rm(1)
+
+=head1 LICENSE AND COPYRIGHT
+
+=for stopword Marier
+Copyright (C) 2008-2009 Francois Marier
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
