@@ -35,6 +35,7 @@ paths like these:
 The user-specific blacklist lives in ~/.safe-rm and could include things like:
 
   /home/username/documents
+  /home/username/documents/*
   /home/username/.mozilla
 
 
