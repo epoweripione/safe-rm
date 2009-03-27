@@ -1,0 +1,16 @@
+Summary: Prevent rm dir/foo<ACCIDENTAL_SPACE>*
+Status: New
+CreatedBy: Martyn Smith <martyn@dollyfish.net.nz>
+AssignedTo: Francois Marier <francois@safe-rm.org.nz>
+Label: enhancement
+Inserted: 2009-03-27T05:10:07
+Updated: 2009-03-27T05:22:51
+
+When parsing the arguments, take a glob '*' to list all of the files in the current
+directory then compare this to the arguments to rm.
+
+If all of the files in the current directory were specified AND there was at least
+one other path in the arguments to rm then it's clear that the user mistyped
+"rm -rf dir/foo*" as "rm-rf dir/foo *".
+
+In that case, bail.
