@@ -1,8 +1,9 @@
 Summary: Support for regular expressions in the list of protected paths
-Status: New
+Status: Finished
 CreatedBy: Miriam Ruiz
 AssignedTo: Francois Marier <francois@debian.org>
+Comment: 174a2b10
 Inserted: 2008-11-01T07:12:37
-Updated: 2008-11-01T07:13:48
+Updated: 2009-03-27T05:24:14
 
 Are regexp expressions allowed in the configuration file containing the list of protected files and directories?

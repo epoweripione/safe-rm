@@ -45,7 +45,9 @@ if ( -r $GLOBAL_CONFIG_FILE ) {
     open my $systemwide_cfg, '<', $GLOBAL_CONFIG_FILE;
     while (<$systemwide_cfg>) {
         chomp;
-        $protected_dirs{$_} = 1;
+        foreach my $file (glob) {
+            $protected_dirs{$file} = 1;
+        }
     }
     close $systemwide_cfg;
 }
@@ -55,7 +57,9 @@ if ( -r $USER_CONFIG_FILE ) {
     open my $user_cfg, '<', $USER_CONFIG_FILE;
     while (<$user_cfg>) {
         chomp;
-        $protected_dirs{$_} = 1;
+        foreach my $file (glob) {
+            $protected_dirs{$file} = 1;
+        }
     }
     close $user_cfg;
 }
@@ -156,6 +160,19 @@ or directories (one per line):
 
 If both of these are empty, a default list of important paths will be
 used.
+
+Wildcards are allowed in the configuration files, but be careful
+
+  /usr/lib/*
+
+will protect all of the files inside the /usr/lib directory if they are referred to directly, but it will not protect your system against:
+
+  rm -rf /usr/lib
+
+For a full protection, you should include both of these lines:
+
+  /usr/lib
+  /usr/lib/*
 
 =head1 EXIT STATUS
 
