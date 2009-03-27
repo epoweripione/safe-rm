@@ -1,4 +1,4 @@
-0.5 (UNRELEASED)
+0.5 (2009-03-28)
   - Add basic support for wildcards in config files
   - Always run rm even when there are no arguments
   - Add contents to the manpage
