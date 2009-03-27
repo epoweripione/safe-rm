@@ -3,9 +3,11 @@ StatusStrict: 1
 StatusAllowedList: New
 StatusAllowedList: InProgress
 StatusAllowedList: Finished
+StatusAllowedList: Wontfix
 StatusOpenList: New
 StatusOpenList: InProgress
 StatusClosedList: Finished
+StatusClosedList: Wontfix
 LabelStrict: 1
 LabelAllowedList: enhancement
 LabelAllowedList: bug
