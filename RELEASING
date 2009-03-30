@@ -1,5 +1,7 @@
 - update and date the changelog
 - bump the version number in the source file
+- run the "test suite"
+
 - tag and push the code
 - build the tarball using "make dist"
 - upload the tarball to Google Code (http://code.google.com/p/safe-rm/downloads/list)
