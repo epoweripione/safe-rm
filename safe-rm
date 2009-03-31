@@ -2,7 +2,6 @@
 
 use warnings;
 use strict;
-use autodie;
 use Cwd 'realpath';
 
 our $VERSION = '0.5';
@@ -40,29 +39,29 @@ my %default_protected_dirs = (
 
 my %protected_dirs = ();
 
-# Read in system-wide configuration file
-if ( -r $GLOBAL_CONFIG_FILE ) {
-    open my $systemwide_cfg, '<', $GLOBAL_CONFIG_FILE;
-    while (<$systemwide_cfg>) {
-        chomp;
-        foreach my $file (glob) {
-            $protected_dirs{$file} = 1;
+sub read_config_file {
+    my $filename = shift;
+
+    if ( -e $filename ) {
+        if ( open my $fh, '<', $filename ) {
+            while (<$fh>) {
+                chomp;
+                foreach my $file (glob) {
+                    $protected_dirs{$file} = 1;
+                }
+            }
+            close $fh;    # deliberatly ignore errors
+        }
+        else {
+            print {*STDERR} "Could not open configuration file: $filename\n";
         }
     }
-    close $systemwide_cfg;
+
+    return;
 }
 
-# Read in user configuration file
-if ( -r $USER_CONFIG_FILE ) {
-    open my $user_cfg, '<', $USER_CONFIG_FILE;
-    while (<$user_cfg>) {
-        chomp;
-        foreach my $file (glob) {
-            $protected_dirs{$file} = 1;
-        }
-    }
-    close $user_cfg;
-}
+read_config_file($GLOBAL_CONFIG_FILE);
+read_config_file($USER_CONFIG_FILE);
 
 if ( 0 == scalar keys %protected_dirs ) {
     %protected_dirs = %default_protected_dirs;
@@ -161,6 +160,7 @@ or directories (one per line):
 If both of these are empty, a default list of important paths will be
 used.
 
+=for stopword Wildcards
 Wildcards are allowed in the configuration files, but be careful
 
   /usr/lib/*
@@ -181,17 +181,6 @@ Same exit status as the real rm command.
 Note that if all file arguments are skipped by safe-rm then the exit status
 will be the same as the exit status of the real rm when no files arguments
 are present.
-
-=head1 DEPENDENCIES
-
-=for stopword autodie
-- Perl 5.8 or later
-- autodie
-
-=for stopword CPAN
-autodie is included by default in Perl 5.10 but can also be found on CPAN:
-
-  http://search.cpan.org/dist/autodie/
 
 =head1 BUGS AND LIMITATIONS
 
