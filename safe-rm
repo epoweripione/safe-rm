@@ -106,13 +106,9 @@ if ( realpath($real_rm) eq realpath($PROGRAM_NAME) ) {
     die 'Cannot find the real "rm" binary' . "\n";
 }
 
-# Run the real rm command
+# Run the real rm command, returning with the same error code
 my $status = system $real_rm, @allowed_args;
-
-# Make our exit code the one returned by the real rm
-use Readonly;
-Readonly::Scalar my $ONE_BYTE => 8;
-my $errcode = $status >> $ONE_BYTE;
+my $errcode = $status >> 8;
 exit $errcode;
 
 __END__
