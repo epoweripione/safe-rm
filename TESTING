@@ -20,3 +20,5 @@ Manual test suite before a release
 
 - put /home/* in ~/.safe-rm and run "rm /home/*"
 - put several files in as arguments, one of which should be skipped, check that the other ones are deleted
+
+- run "man safe-rm" and skim the manual for obvious mistakes
