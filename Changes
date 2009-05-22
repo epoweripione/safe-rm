@@ -1,3 +1,6 @@
+0.6 (UNRELEASED)
+  - Change the "skipping" message to make it obvious that it comes from safe-rm
+
 0.5 (2009-04-02)
   - Add basic support for wildcards in config files
   - Always run rm even when there are no arguments
