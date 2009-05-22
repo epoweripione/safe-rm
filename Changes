@@ -1,4 +1,5 @@
-0.6 (UNRELEASED)
+0.6 (2009-05-22)
+  - Allow the deletion of symlinks to protected paths
   - Change the "skipping" message to make it obvious that it comes from safe-rm
 
 0.5 (2009-04-02)

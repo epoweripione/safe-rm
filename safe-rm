@@ -88,7 +88,7 @@ foreach (@ARGV) {
     }
 
     # Check against the blacklist
-    if ( exists $protected_dirs{$normalized_pathname} ) {
+    if ( exists $protected_dirs{$normalized_pathname} and not -l $pathname ) {
         print {*STDERR} "safe-rm: skipping $pathname\n" || 0;
     }
     elsif ( $pathname =~ /(.*)/xms ) {    # pointless untainting
