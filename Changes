@@ -1,3 +1,6 @@
+0.8 (2009-10-15)
+  - Remove unnecessary dependency on English.pm
+
 0.7 (2009-09-23)
   - Add CDPATH to the variables to untaint
 

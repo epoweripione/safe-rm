@@ -4,7 +4,7 @@ use warnings;
 use strict;
 use Cwd 'realpath';
 
-our $VERSION = '0.7';
+our $VERSION = '0.8';
 
 my $homedir            = $ENV{HOME} || q{};
 my $USER_CONFIG_FILE   = "$homedir/.safe-rm";
@@ -102,9 +102,8 @@ local $ENV{CDPATH} = q{};                 # pointless untainting
 my $real_rm = '/bin/rm';
 
 # Make sure we're not calling ourselves recursively
-use English '-no_match_vars';
-if ( realpath($real_rm) eq realpath($PROGRAM_NAME) ) {
-    die 'Cannot find the real "rm" binary' . "\n";
+if ( realpath($real_rm) eq realpath($0) ) {
+    die 'safe-rm cannot find the real "rm" binary' . "\n";
 }
 
 # Run the real rm command, returning with the same error code
