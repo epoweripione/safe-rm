@@ -72,3 +72,8 @@ There are also projects which implement the FreeDesktop.org trashcan spec. For e
 
   trash-cli
   http://code.google.com/p/trash-cli/
+
+Finally, this project is a fork of GNU coreutils and adds features similar to safe-rm
+to the rm command directly:
+
+  http://wiki.github.com/d5h/rmfd/
