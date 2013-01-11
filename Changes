@@ -1,4 +1,5 @@
 0.9 (UNRELEASED)
+  - Add /lib32 and /lib64 to the default blacklist (bug #1097972)
   - Mention rmfd in the README
 
 0.8 (2009-10-15)
