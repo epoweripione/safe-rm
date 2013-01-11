@@ -4,12 +4,12 @@
 
 - tag and push the code
 - build the tarball using "make dist"
-- upload the tarball to Launchpad (empty changelog):
+- upload the tarball to Launchpad (empty changelog, fill in release notes):
 
 gpg --armor --sign --detach-sig safe-rm-VERSION.tar.gz
 lp-project-upload safe-rm VERSION safe-rm-VERSION.tar.gz
 
-- announce the release on Freshmeat (http://freshmeat.net/projects/safe-rm/)
+- announce the release on Freshmeat (http://freecode.com/projects/safe-rm/)
 - update and upload the Debian package
 - add a new post on the safe-rm blog (http://www.safe-rm.org.nz)
 - create milestone for next release on Launchpad:
