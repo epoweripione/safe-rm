@@ -101,6 +101,7 @@ foreach (@ARGV) {
 # Prepare for actually deleting the file
 local $ENV{PATH} = q{};                   # pointless untainting
 local $ENV{CDPATH} = q{};                 # pointless untainting
+local $ENV{IFS} = " \t\n";                # pointless untainting
 my $real_rm = '/bin/rm';
 
 # Make sure we're not calling ourselves recursively
