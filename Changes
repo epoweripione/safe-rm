@@ -1,3 +1,6 @@
+0.11 (UNRELEASED)
+  - Update URL and email address (safe-rm.org.nz is deprecated)
+
 0.10 (2013-06-09)
   - Add IFS to the list of environment variables to untaint
 
