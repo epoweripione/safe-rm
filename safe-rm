@@ -5,7 +5,7 @@ use strict;
 use Cwd 'realpath';
 use Env;
 
-our $VERSION = '0.10';
+our $VERSION = '0.11';
 
 my $homedir            = $ENV{HOME} || q{};
 my $LEGACY_CONFIG_FILE = "$homedir/.safe-rm";
