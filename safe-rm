@@ -3,11 +3,13 @@
 use warnings;
 use strict;
 use Cwd 'realpath';
+use Env;
 
 our $VERSION = '0.10';
 
 my $homedir            = $ENV{HOME} || q{};
-my $USER_CONFIG_FILE   = "$homedir/.safe-rm";
+my $LEGACY_CONFIG_FILE = "$homedir/.safe-rm";
+my $USER_CONFIG_FILE   = ($ENV{XDG_CONFIG_HOME} || "$homedir/.config") . "/safe-rm";
 my $GLOBAL_CONFIG_FILE = '/etc/safe-rm.conf';
 
 my %default_protected_dirs = (
@@ -63,6 +65,7 @@ sub read_config_file {
 }
 
 read_config_file($GLOBAL_CONFIG_FILE);
+read_config_file($LEGACY_CONFIG_FILE);
 read_config_file($USER_CONFIG_FILE);
 
 if ( 0 == scalar keys %protected_dirs ) {
@@ -154,7 +157,7 @@ Both of these configuration files can contain a list of important files
 or directories (one per line):
 
   /etc/safe-rm.conf
-  ~/.safe-rm
+  ~/.config/safe-rm
 
 If both of these are empty, a default list of important paths will be
 used.

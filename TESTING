@@ -1,14 +1,14 @@
 Manual test suite before a release
 
 - remove only /etc/safe-rm.conf and try to delete a missing file
-- remove /etc/safe-rm.conf and ~/.safe-rm and try to delete a missing file
-- remove /etc/safe-rm.conf and ~/.safe-rm and try to delete /usr/lib (should fail)
-- remove only ~/.safe-rm and try to delete a missing file
+- remove /etc/safe-rm.conf and ~/.config/safe-rm and try to delete a missing file
+- remove /etc/safe-rm.conf and ~/.config/safe-rm and try to delete /usr/lib (should fail)
+- remove only ~/.config/safe-rm and try to delete a missing file
 
 - remove a missing file and make sure the return value is nonzero
 - touch a file and delete it
 - attempt to delete (as a normal user) /usr/lib (which is in /etc/safe-rm.conf)
-- attempt to delete a directory which is in ~/.safe-rm without using "-r"
+- attempt to delete a directory which is in ~/.config/safe-rm without using "-r"
 
 - delete the root directory (/)
 - delete a protected path in the current directory using the absolute name
@@ -18,7 +18,7 @@ Manual test suite before a release
 
 - run "safe-rm --help" and make sure it returns the rm usage
 
-- put /home/* in ~/.safe-rm and run "rm /home/*"
+- put /home/* in ~/.config/safe-rm and run "rm /home/*"
 - put several files in as arguments, one of which should be skipped, check that the other ones are deleted
 
 - symlink /usr/lib into the current directory and delete the symlink (it should work)

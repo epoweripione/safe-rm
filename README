@@ -32,7 +32,7 @@ paths like these:
   /usr/lib
   /var
 
-The user-specific blacklist lives in ~/.safe-rm and could include things like:
+The user-specific blacklist lives in ~/.config/safe-rm and could include things like:
 
   /home/username/documents
   /home/username/documents/*
