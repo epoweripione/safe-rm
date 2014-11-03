@@ -3,7 +3,6 @@
 use warnings;
 use strict;
 use Cwd 'realpath';
-use Env;
 
 our $VERSION = '0.11';
 

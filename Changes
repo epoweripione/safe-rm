@@ -1,3 +1,6 @@
+0.12 (UNRELEASED)
+  - Remove unnecessary dependency on Env
+
 0.11 (2014-10-08)
   - Read user config from $XDG_CONFIG_HOME/safe-rm too
   - Update URL and email address (safe-rm.org.nz is deprecated)
