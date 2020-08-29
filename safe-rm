@@ -93,7 +93,7 @@ foreach (@ARGV) {
         $normalized_pathname = $1;
     }
 
-    # Check against the blacklist
+    # Check against the exclusions
     if ( exists $protected_dirs{$normalized_pathname} and not -l $pathname ) {
         print {*STDERR} "safe-rm: skipping $pathname\n" || 0;
     }
@@ -133,8 +133,8 @@ safe-rm [ ... ]
 
 safe-rm prevents the accidental deletion of important files by
 replacing rm with a wrapper which checks the given arguments against a
-configurable blacklist of files and directories which should never be
-removed.
+configurable list of exclusions for files and directories which should
+never be removed.
 
 Users who attempt to delete one of these protected files or
 directories will not be able to do so and will be shown a warning

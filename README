@@ -1,5 +1,5 @@
 safe-rm - https://launchpad.net/safe-rm
-prevention of accidental deletions using a directory blacklist
+prevention of accidental deletions by excluding important directories
 
 Copyright (C) 2008-2014  Francois Marier <francois@fmarier.org>
 
@@ -20,10 +20,10 @@ How to use
 -----------
 
 Once you have installed safe-rm on your system (see INSTALL), you will need to
-fill the system-wide or user-specific blacklists with the paths that you'd like
+fill the system-wide or user-specific exclusions with the paths that you'd like
 to protect against accidental deletion.
 
-The system-wide blacklist lives in /etc/safe-rm.conf (or /usr/local/etc/safe-rm.conf)
+The system-wide exclusions live in /etc/safe-rm.conf (or /usr/local/etc/safe-rm.conf)
 and you should probably add paths like these:
 
   /
@@ -32,7 +32,7 @@ and you should probably add paths like these:
   /usr/lib
   /var
 
-The user-specific blacklist lives in ~/.config/safe-rm and could include things like:
+The user-specific exclusions live in ~/.config/safe-rm and could include things like:
 
   /home/username/documents
   /home/username/documents/*
