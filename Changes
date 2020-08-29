@@ -1,5 +1,6 @@
 0.13 (UNRELEASED)
   - Add /usr/local/etc/safe-rm.conf as alternative config file (bug #1893500).
+  - Upgrade links to HTTPS and fix dead ones.
 
 0.12 (2014-11-03)
   - Remove unnecessary dependency on Env
