@@ -10,6 +10,7 @@ my $homedir            = $ENV{HOME} || q{};
 my $LEGACY_CONFIG_FILE = "$homedir/.safe-rm";
 my $USER_CONFIG_FILE   = ($ENV{XDG_CONFIG_HOME} || "$homedir/.config") . "/safe-rm";
 my $GLOBAL_CONFIG_FILE = '/etc/safe-rm.conf';
+my $GLOBAL_LOCAL_CONFIG_FILE = '/usr/local/etc/safe-rm.conf';
 
 my %default_protected_dirs = (
     '/bin'               => 1,
@@ -64,6 +65,7 @@ sub read_config_file {
 }
 
 read_config_file($GLOBAL_CONFIG_FILE);
+read_config_file($GLOBAL_LOCAL_CONFIG_FILE);
 read_config_file($LEGACY_CONFIG_FILE);
 read_config_file($USER_CONFIG_FILE);
 
@@ -152,13 +154,14 @@ You could create the following symbolic link:
 
 Protected paths can be set both at the site and user levels.
 
-Both of these configuration files can contain a list of important files
+All of these configuration files can contain a list of important files
 or directories (one per line):
 
   /etc/safe-rm.conf
+  /usr/local/etc/safe-rm.conf
   ~/.config/safe-rm
 
-If both of these are empty, a default list of important paths will be
+If all of these are empty, a default list of important paths will be
 used.
 
 =for stopword Wildcards

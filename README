@@ -23,8 +23,8 @@ Once you have installed safe-rm on your system (see INSTALL), you will need to
 fill the system-wide or user-specific blacklists with the paths that you'd like
 to protect against accidental deletion.
 
-The system-wide blacklist lives in /etc/safe-rm.conf and you should probably add
-paths like these:
+The system-wide blacklist lives in /etc/safe-rm.conf (or /usr/local/etc/safe-rm.conf)
+and you should probably add paths like these:
 
   /
   /etc
