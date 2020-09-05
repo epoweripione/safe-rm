@@ -1,4 +1,4 @@
-0.13 (2020-08-30)
+0.13 (2020-09-05)
   - Add /usr/local/etc/safe-rm.conf as alternative config file (bug #1893500).
   - Upgrade links to HTTPS and fix dead ones.
 
