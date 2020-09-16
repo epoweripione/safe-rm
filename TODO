@@ -1,0 +1,4 @@
+- flesh out the manifest (https://doc.rust-lang.org/cargo/reference/manifest.html)
+- use clippy
+- use rustfmt
+- (maybe) use cargo audit
