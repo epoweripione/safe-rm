@@ -2,15 +2,17 @@ use std::fs::File;
 use std::io::{self, BufRead};
 use std::path::Path;
 
-fn read_config<P>(filename: P) -> Result<(), io::Error>
-where P: AsRef<Path>, {
+fn read_config<P>(filename: P) -> Result<Vec<String>, io::Error>
+where P: AsRef<Path> {  // TODO: figure out what this line does exactly
+    let mut excluded_paths = Vec::new();
+
     let f = File::open(filename)?;
     let reader = io::BufReader::new(f);
     for line_result in reader.lines() {
-        let line = line_result?;
-        println!("{}", line);
+        let line = line_result?;  // TODO: warn invalid lines instead
+        excluded_paths.push(line);
     }
-    Ok(())  // TODO: return a vector of exclusions
+    Ok(excluded_paths)
 }
 
 fn normalize_path(pathname: &str) -> String {
@@ -28,16 +30,50 @@ fn test_normalize_path() {
 }
 
 fn main() {
-    read_config("/etc/safe-rm.conf");
-    read_config("/usr/local/etc/safe-rm.conf");
-    // TODO: read_config("~/.safe-rm");
-    // TODO: read_config("~/.config/safe-rm");
+    let mut protected_paths = Vec::new();
 
-    // TODO: use default protected paths if none were configured
+    // System-wide config
+    match read_config("/etc/safe-rm.conf") {
+        Ok(mut paths) => protected_paths.append(&mut paths),
+        Err(_) => ()
+    };
+    // Alternative system-wide config
+    match read_config("/usr/local/etc/safe-rm.conf") {
+        Ok(mut paths) => protected_paths.append(&mut paths),
+        Err(_) => ()
+    };
+    match std::env::var("HOME") {
+        Ok(value) => {
+            let home_dir = Path::new(&value);
+            // User config file
+            match read_config(&home_dir.join(Path::new(".config/safe-rm"))) {
+                Ok(mut paths) => protected_paths.append(&mut paths),
+                Err(_) => ()
+            };
+            // Legacy user config file
+            match read_config(&home_dir.join(Path::new(".safe-rm"))) {
+                Ok(mut paths) => protected_paths.append(&mut paths),
+                Err(_) => ()
+            };
+        },
+        Err(_) => ()
+    }
 
+    if protected_paths.is_empty() {
+        // TODO: provide some default protected paths
+    }
+    protected_paths.sort();
+    protected_paths.dedup();
+    println!("{:#?}", protected_paths);
+
+    let mut filtered_args = Vec::new();
     for pathname in std::env::args().skip(1) {
         let normalized_pathname = normalize_path(&pathname);
-        // TODO: Check against the exclusions.
         println!("{} -> {}", pathname, normalized_pathname);
+        // TODO: Check against protected_paths.
+        filtered_args.push(pathname);
     }
+
+    // TODO: Run the real rm command.
+    println!("{:#?}", filtered_args);
 }
