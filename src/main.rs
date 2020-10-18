@@ -118,8 +118,9 @@ fn main() {
     for pathname in std::env::args().skip(1) {
         let normalized_pathname = normalize_path(&pathname);
         println!("{} -> {}", pathname, normalized_pathname);
-        // TODO: Check against protected_paths.
-        filtered_args.push(pathname);
+        if !protected_paths.contains(&normalized_pathname) {
+            filtered_args.push(pathname);
+        }
     }
 
     // TODO: Run the real rm command.
