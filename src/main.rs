@@ -1,3 +1,18 @@
+// Copyright (C) 2020 Francois Marier
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 use std::fs::File;
 use std::io::{self, BufRead};
 use std::path::Path;
@@ -9,7 +24,7 @@ where P: AsRef<Path> {  // TODO: figure out what this line does exactly
     let f = File::open(filename)?;
     let reader = io::BufReader::new(f);
     for line_result in reader.lines() {
-        let line = line_result?;  // TODO: warn invalid lines instead
+        let line = line_result?;  // TODO: warn about invalid lines instead
         excluded_paths.push(line);
     }
     Ok(excluded_paths)
@@ -60,7 +75,35 @@ fn main() {
     }
 
     if protected_paths.is_empty() {
-        // TODO: provide some default protected paths
+        // TODO: move to a separate function
+        protected_paths = vec![
+            "/bin".to_string(),
+            "/boot".to_string(),
+            "/dev".to_string(),
+            "/etc".to_string(),
+            "/home".to_string(),
+            "/initrd".to_string(),
+            "/lib".to_string(),
+            "/lib32".to_string(),
+            "/lib64".to_string(),
+            "/proc".to_string(),
+            "/root".to_string(),
+            "/sbin".to_string(),
+            "/sys".to_string(),
+            "/usr".to_string(),
+            "/usr/bin".to_string(),
+            "/usr/include".to_string(),
+            "/usr/lib".to_string(),
+            "/usr/local".to_string(),
+            "/usr/local/bin".to_string(),
+            "/usr/local/include".to_string(),
+            "/usr/local/sbin".to_string(),
+            "/usr/local/share".to_string(),
+            "/usr/sbin".to_string(),
+            "/usr/share".to_string(),
+            "/usr/src".to_string(),
+            "/var".to_string()
+        ];
     }
     protected_paths.sort();
     protected_paths.dedup();
