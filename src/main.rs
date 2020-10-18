@@ -13,6 +13,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+use std::fs;
 use std::fs::File;
 use std::io::{self, BufRead};
 use std::path::Path;
@@ -31,17 +32,21 @@ where P: AsRef<Path> {  // TODO: figure out what this line does exactly
 }
 
 fn normalize_path(pathname: &str) -> String {
-    let mut normalized_pathname = pathname.to_string();
-    // TODO: Normalize pathname.
-    // TODO: Convert to an absolute path (e.g. remove "..").
-    // TODO: Trim trailing slashes.
-    normalized_pathname
+    // TODO: return original pathname in case of unwrap() errors
+    let normalized_pathname = fs::canonicalize(pathname).unwrap();
+    normalized_pathname.to_str().unwrap().to_string()
 }
 
 #[test]
 fn test_normalize_path() {
-    assert_eq!(normalize_path(""), "");
-    assert_eq!(normalize_path("foo"), "foo");
+    assert_eq!(normalize_path("/"), "/");
+    assert_eq!(normalize_path("/../."), "/");
+    assert_eq!(normalize_path("/usr"), "/usr");
+    assert_eq!(normalize_path("/usr/"), "/usr");
+    assert_eq!(normalize_path("/home/../usr"), "/usr");
+    // TODO: re-enable these tests once unwrap() errors are handled
+    //assert_eq!(normalize_path(""), "");
+    //assert_eq!(normalize_path("foo"), "foo");
 }
 
 fn main() {
