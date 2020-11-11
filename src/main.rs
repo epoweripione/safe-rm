@@ -67,9 +67,12 @@ fn read_config<P>(filename: P, paths: &mut Vec<String>) where P: AsRef<Path> {  
 }
 
 fn normalize_path(pathname: &str) -> String {
-    // TODO: return original pathname in case of unwrap() errors
-    let normalized_pathname = fs::canonicalize(pathname).unwrap();
-    normalized_pathname.to_str().unwrap().to_string()
+    match fs::canonicalize(pathname) {
+        Ok(normalized_pathname) => {
+            normalized_pathname.to_str().unwrap().to_string()  // TODO: remove unwrap
+        },
+        Err(_) => pathname.to_string()
+    }
 }
 
 #[test]
@@ -79,9 +82,8 @@ fn test_normalize_path() {
     assert_eq!(normalize_path("/usr"), "/usr");
     assert_eq!(normalize_path("/usr/"), "/usr");
     assert_eq!(normalize_path("/home/../usr"), "/usr");
-    // TODO: re-enable these tests once unwrap() errors are handled
-    //assert_eq!(normalize_path(""), "");
-    //assert_eq!(normalize_path("foo"), "foo");
+    assert_eq!(normalize_path(""), "");
+    assert_eq!(normalize_path("foo"), "foo");
 }
 
 fn main() {
