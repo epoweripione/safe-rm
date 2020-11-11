@@ -53,6 +53,7 @@ const DEFAULT_PATHS: &[&str] = &[
 ];
 
 fn read_config<P>(filename: P, paths: &mut Vec<String>) where P: AsRef<Path> {  // TODO: figure out what this line does exactly
+    // TODO: warn about config files that exist but cannot be read
     match File::open(filename) {
         Ok(f) => {
             let reader = io::BufReader::new(f);
@@ -67,7 +68,11 @@ fn read_config<P>(filename: P, paths: &mut Vec<String>) where P: AsRef<Path> {  
                 }
             }
         },
-        Err(_) => ()
+        Err(_) => {
+            // TODO: make this error message work
+            //println!("Could not open configuration file: {}", filename.display());
+            ()
+        }
     }
 }
 
