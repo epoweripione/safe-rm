@@ -125,8 +125,10 @@ fn main() {
     let mut filtered_args = Vec::new();
     for pathname in std::env::args().skip(1) {
         let normalized_pathname = normalize_path(&pathname);
-        println!("{} -> {}", pathname, normalized_pathname);
-        if !protected_paths.contains(&normalized_pathname) {
+        println!("{} -> {}", pathname, normalized_pathname); // TODO: remove this line
+        if protected_paths.contains(&normalized_pathname) {  // TODO: skip symlinks
+            println!("safe-rm: skipping {}", pathname);
+        } else {
             filtered_args.push(pathname);
         }
     }
