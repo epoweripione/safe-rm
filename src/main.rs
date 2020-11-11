@@ -18,6 +18,11 @@ use std::fs::File;
 use std::io::{self, BufRead};
 use std::path::Path;
 
+const GLOBAL_CONFIG: &str = "/etc/safe-rm.conf";
+const LOCAL_GLOBAL_CONFIG: &str = "/usr/local/etc/safe-rm.conf";
+const USER_CONFIG: &str = ".config/safe-rm";
+const LEGACY_USER_CONFIG: &str = ".safe-rm";
+
 const DEFAULT_PATHS: &[&str] = &[
     "/bin",
     "/boot",
@@ -89,13 +94,13 @@ fn test_normalize_path() {
 fn main() {
     let mut protected_paths = Vec::new();
 
-    read_config("/etc/safe-rm.conf", &mut protected_paths);  // system-wide
-    read_config("/usr/local/etc/safe-rm.conf", &mut protected_paths);  // alternative system-wide
-    match std::env::var("HOME") {  // user-specific
+    read_config(GLOBAL_CONFIG, &mut protected_paths);
+    read_config(LOCAL_GLOBAL_CONFIG, &mut protected_paths);
+    match std::env::var("HOME") {
         Ok(value) => {
             let home_dir = Path::new(&value);
-            read_config(&home_dir.join(Path::new(".config/safe-rm")), &mut protected_paths);
-            read_config(&home_dir.join(Path::new(".safe-rm")), &mut protected_paths);  // legacy
+            read_config(&home_dir.join(Path::new(USER_CONFIG)), &mut protected_paths);
+            read_config(&home_dir.join(Path::new(LEGACY_USER_CONFIG)), &mut protected_paths);
         },
         Err(_) => ()
     }
