@@ -18,17 +18,52 @@ use std::fs::File;
 use std::io::{self, BufRead};
 use std::path::Path;
 
-fn read_config<P>(filename: P) -> Result<Vec<String>, io::Error>
-where P: AsRef<Path> {  // TODO: figure out what this line does exactly
-    let mut excluded_paths = Vec::new();
+const DEFAULT_PATHS: &[&str] = &[
+    "/bin",
+    "/boot",
+    "/dev",
+    "/etc",
+    "/home",
+    "/initrd",
+    "/lib",
+    "/lib32",
+    "/lib64",
+    "/proc",
+    "/root",
+    "/sbin",
+    "/sys",
+    "/usr",
+    "/usr/bin",
+    "/usr/include",
+    "/usr/lib",
+    "/usr/local",
+    "/usr/local/bin",
+    "/usr/local/include",
+    "/usr/local/sbin",
+    "/usr/local/share",
+    "/usr/sbin",
+    "/usr/share",
+    "/usr/src",
+    "/var",
+];
 
-    let f = File::open(filename)?;
-    let reader = io::BufReader::new(f);
-    for line_result in reader.lines() {
-        let line = line_result?;  // TODO: warn about invalid lines instead
-        excluded_paths.push(line);
+fn read_config<P>(filename: P, paths: &mut Vec<String>) where P: AsRef<Path> {  // TODO: figure out what this line does exactly
+    match File::open(filename) {
+        Ok(f) => {
+            let reader = io::BufReader::new(f);
+            for line_result in reader.lines() {
+                match line_result {
+                    Ok(line) => {
+                        paths.push(line);
+                    },
+                    Err(_) => {
+                        // TODO: warn about invalid line
+                    }
+                }
+            }
+        },
+        Err(_) => ()
     }
-    Ok(excluded_paths)
 }
 
 fn normalize_path(pathname: &str) -> String {
@@ -52,67 +87,25 @@ fn test_normalize_path() {
 fn main() {
     let mut protected_paths = Vec::new();
 
-    // System-wide config
-    match read_config("/etc/safe-rm.conf") {
-        Ok(mut paths) => protected_paths.append(&mut paths),
-        Err(_) => ()
-    };
-    // Alternative system-wide config
-    match read_config("/usr/local/etc/safe-rm.conf") {
-        Ok(mut paths) => protected_paths.append(&mut paths),
-        Err(_) => ()
-    };
-    match std::env::var("HOME") {
+    read_config("/etc/safe-rm.conf", &mut protected_paths);  // system-wide
+    read_config("/usr/local/etc/safe-rm.conf", &mut protected_paths);  // alternative system-wide
+    match std::env::var("HOME") {  // user-specific
         Ok(value) => {
             let home_dir = Path::new(&value);
-            // User config file
-            match read_config(&home_dir.join(Path::new(".config/safe-rm"))) {
-                Ok(mut paths) => protected_paths.append(&mut paths),
-                Err(_) => ()
-            };
-            // Legacy user config file
-            match read_config(&home_dir.join(Path::new(".safe-rm"))) {
-                Ok(mut paths) => protected_paths.append(&mut paths),
-                Err(_) => ()
-            };
+            read_config(&home_dir.join(Path::new(".config/safe-rm")), &mut protected_paths);
+            read_config(&home_dir.join(Path::new(".safe-rm")), &mut protected_paths);  // legacy
         },
         Err(_) => ()
     }
 
     if protected_paths.is_empty() {
-        // TODO: move to a separate function
-        protected_paths = vec![
-            "/bin".to_string(),
-            "/boot".to_string(),
-            "/dev".to_string(),
-            "/etc".to_string(),
-            "/home".to_string(),
-            "/initrd".to_string(),
-            "/lib".to_string(),
-            "/lib32".to_string(),
-            "/lib64".to_string(),
-            "/proc".to_string(),
-            "/root".to_string(),
-            "/sbin".to_string(),
-            "/sys".to_string(),
-            "/usr".to_string(),
-            "/usr/bin".to_string(),
-            "/usr/include".to_string(),
-            "/usr/lib".to_string(),
-            "/usr/local".to_string(),
-            "/usr/local/bin".to_string(),
-            "/usr/local/include".to_string(),
-            "/usr/local/sbin".to_string(),
-            "/usr/local/share".to_string(),
-            "/usr/sbin".to_string(),
-            "/usr/share".to_string(),
-            "/usr/src".to_string(),
-            "/var".to_string()
-        ];
+        for path in DEFAULT_PATHS {
+            protected_paths.push(path.to_string());
+        }
     }
     protected_paths.sort();
     protected_paths.dedup();
-    println!("{:#?}", protected_paths);
+    println!("{:#?}", protected_paths);  // TODO: remove this line
 
     let mut filtered_args = Vec::new();
     for pathname in std::env::args().skip(1) {
