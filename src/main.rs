@@ -17,11 +17,14 @@ use std::fs;
 use std::fs::File;
 use std::io::{self, BufRead};
 use std::path::Path;
+use std::process;
 
 const GLOBAL_CONFIG: &str = "/etc/safe-rm.conf";
 const LOCAL_GLOBAL_CONFIG: &str = "/usr/local/etc/safe-rm.conf";
 const USER_CONFIG: &str = ".config/safe-rm";
 const LEGACY_USER_CONFIG: &str = ".safe-rm";
+
+const REAL_RM: &str = "/bin/rm";
 
 const DEFAULT_PATHS: &[&str] = &[
     "/bin",
@@ -128,6 +131,12 @@ fn main() {
         }
     }
 
-    // TODO: Run the real rm command.
-    println!("{:#?}", filtered_args);
+    // Make sure we're not calling ourselves recursively.
+    if fs::canonicalize(REAL_RM).unwrap() == fs::canonicalize(std::env::current_exe().unwrap()).unwrap() {
+        println!("safe-rm cannot find the real \"rm\" binary");
+        process::exit(1);
+    }
+
+    println!("{} {:#?}", REAL_RM, filtered_args);  // TODO: remove this line
+    // TODO: Run the real rm command, returning with the same error code
 }
