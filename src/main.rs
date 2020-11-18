@@ -56,7 +56,10 @@ const DEFAULT_PATHS: &[&str] = &[
 ];
 
 fn read_config<P: AsRef<Path>>(filename: P, paths: &mut Vec<String>) {
-    match File::open(filename) {
+    if !filename.as_ref().exists() {
+        return ();
+    }
+    match File::open(&filename) {
         Ok(f) => {
             let reader = io::BufReader::new(f);
             for line_result in reader.lines() {
@@ -65,16 +68,13 @@ fn read_config<P: AsRef<Path>>(filename: P, paths: &mut Vec<String>) {
                         paths.push(line);
                     },
                     Err(_) => {
-                        // TODO: make this error message work
-                        //println!("Invalid line found in {} and ignored.", filename.display());
-                        println!("Invalid line found and ignored.");  // TODO: remove this line
+                        println!("Invalid line found in {} and ignored.", filename.as_ref().display());
                     }
                 }
             }
         },
         Err(_) => {
-            // TODO: make this error message work
-            //println!("Could not open configuration file: {}", filename.display());
+            println!("Could not open configuration file: {}", filename.as_ref().display());
             ()
         }
     }
