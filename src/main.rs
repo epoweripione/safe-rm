@@ -131,9 +131,17 @@ fn main() {
 
     let mut filtered_args = Vec::new();
     for pathname in std::env::args().skip(1) {
+        let mut is_symlink = false;
+        match fs::symlink_metadata(&pathname) {
+            Ok(metadata) => {
+                is_symlink = metadata.file_type().is_symlink();
+            },
+            Err(_) => ()
+        }
+
         let normalized_pathname = normalize_path(&pathname);
         println!("{} -> {}", pathname, normalized_pathname); // TODO: remove this line
-        if protected_paths.contains(&normalized_pathname) {  // TODO: skip symlinks
+        if protected_paths.contains(&normalized_pathname) && !is_symlink {
             println!("safe-rm: skipping {}", pathname);
         } else {
             filtered_args.push(pathname);
