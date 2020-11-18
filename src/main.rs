@@ -56,7 +56,6 @@ const DEFAULT_PATHS: &[&str] = &[
 ];
 
 fn read_config<P>(filename: P, paths: &mut Vec<String>) where P: AsRef<Path> {  // TODO: figure out what this line does exactly
-    // TODO: warn about config files that exist but cannot be read
     match File::open(filename) {
         Ok(f) => {
             let reader = io::BufReader::new(f);
@@ -66,7 +65,9 @@ fn read_config<P>(filename: P, paths: &mut Vec<String>) where P: AsRef<Path> {  
                         paths.push(line);
                     },
                     Err(_) => {
-                        // TODO: warn about invalid line
+                        // TODO: make this error message work
+                        //println!("Invalid line found in {} and ignored.", filename.display());
+                        println!("Invalid line found and ignored.");  // TODO: remove this line
                     }
                 }
             }
@@ -82,7 +83,12 @@ fn read_config<P>(filename: P, paths: &mut Vec<String>) where P: AsRef<Path> {  
 fn normalize_path(pathname: &str) -> String {
     match fs::canonicalize(pathname) {
         Ok(normalized_pathname) => {
-            normalized_pathname.to_str().unwrap().to_string()  // TODO: remove unwrap
+            match normalized_pathname.to_str() {
+                Some(normalized_pathname_str) => {
+                    normalized_pathname_str.to_string()
+                },
+                None => pathname.to_string()
+            }
         },
         Err(_) => pathname.to_string()
     }
@@ -97,6 +103,7 @@ fn test_normalize_path() {
     assert_eq!(normalize_path("/home/../usr"), "/usr");
     assert_eq!(normalize_path(""), "");
     assert_eq!(normalize_path("foo"), "foo");
+    assert_eq!(normalize_path("/tmp/�/"), "/tmp/�/");
 }
 
 fn main() {
