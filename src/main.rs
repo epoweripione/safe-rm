@@ -55,7 +55,7 @@ const DEFAULT_PATHS: &[&str] = &[
     "/var",
 ];
 
-fn read_config<P>(filename: P, paths: &mut Vec<String>) where P: AsRef<Path> {  // TODO: figure out what this line does exactly
+fn read_config<P: AsRef<Path>>(filename: P, paths: &mut Vec<String>) {
     match File::open(filename) {
         Ok(f) => {
             let reader = io::BufReader::new(f);
