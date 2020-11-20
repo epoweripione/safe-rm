@@ -12,3 +12,7 @@ $(TARBALL):
 
 clean:
 	-rm -rf $(TARBALL) $(BUILDDIR)
+
+test:
+	cargo check
+	cargo test
