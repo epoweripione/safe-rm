@@ -106,6 +106,55 @@ fn test_normalize_path() {
     assert_eq!(normalize_path("/tmp/�/"), "/tmp/�/");
 }
 
+fn filter_pathnames(args: impl Iterator<Item = String>, protected_paths: &Vec<String>) -> Vec<String> {
+    let mut filtered_args = Vec::new();
+    for pathname in args {
+        let mut is_symlink = false;
+        match fs::symlink_metadata(&pathname) {
+            Ok(metadata) => {
+                is_symlink = metadata.file_type().is_symlink();
+            },
+            Err(_) => ()
+        }
+
+        let normalized_pathname = normalize_path(&pathname);
+        println!("{} -> {}", pathname, normalized_pathname); // TODO: remove this line
+        if protected_paths.contains(&normalized_pathname) && !is_symlink {
+            println!("safe-rm: skipping {}", pathname);
+        } else {
+            filtered_args.push(pathname);
+        }
+    }
+    filtered_args
+}
+
+#[test]
+fn test_filter_pathnames() {
+    // Simple cases
+    assert_eq!(filter_pathnames(vec!["/safe".to_string()].into_iter(),
+                                &vec!["/safe".to_string()]),
+               Vec::<String>::new());
+    assert_eq!(filter_pathnames(vec!["/safe".to_string(), "/unsafe".to_string()].into_iter(),
+                                &vec!["/safe".to_string()]),
+               vec!["/unsafe".to_string()]);
+
+    // Degenerate cases
+    assert_eq!(filter_pathnames(Vec::<String>::new().into_iter(),
+                                &Vec::<String>::new()),
+               Vec::<String>::new());
+    assert_eq!(filter_pathnames(vec!["/safe".to_string(), "/unsafe".to_string()].into_iter(),
+                                &Vec::<String>::new()),
+               vec!["/safe".to_string(), "/unsafe".to_string()]);
+    assert_eq!(filter_pathnames(Vec::<String>::new().into_iter(),
+                                &vec!["/safe".to_string()]),
+               Vec::<String>::new());
+
+    // Relative path
+    assert_eq!(filter_pathnames(vec!["/../".to_string(), "/unsafe".to_string()].into_iter(),
+                                &vec!["/".to_string()]),
+               vec!["/unsafe".to_string()]);
+}
+
 fn main() {
     let mut protected_paths = Vec::new();
 
@@ -129,24 +178,7 @@ fn main() {
     protected_paths.dedup();
     println!("{:#?}", protected_paths);  // TODO: remove this line
 
-    let mut filtered_args = Vec::new();
-    for pathname in std::env::args().skip(1) {
-        let mut is_symlink = false;
-        match fs::symlink_metadata(&pathname) {
-            Ok(metadata) => {
-                is_symlink = metadata.file_type().is_symlink();
-            },
-            Err(_) => ()
-        }
-
-        let normalized_pathname = normalize_path(&pathname);
-        println!("{} -> {}", pathname, normalized_pathname); // TODO: remove this line
-        if protected_paths.contains(&normalized_pathname) && !is_symlink {
-            println!("safe-rm: skipping {}", pathname);
-        } else {
-            filtered_args.push(pathname);
-        }
-    }
+    let filtered_args = filter_pathnames(std::env::args().skip(1), &protected_paths);
 
     // Make sure we're not calling ourselves recursively.
     if fs::canonicalize(REAL_RM).unwrap() == fs::canonicalize(std::env::current_exe().unwrap()).unwrap() {
