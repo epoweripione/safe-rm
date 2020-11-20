@@ -57,7 +57,7 @@ const DEFAULT_PATHS: &[&str] = &[
 
 fn read_config<P: AsRef<Path>>(filename: P, paths: &mut Vec<String>) {
     if !filename.as_ref().exists() {
-        return ();
+        return;
     }
     match File::open(&filename) {
         Ok(f) => {
@@ -67,16 +67,11 @@ fn read_config<P: AsRef<Path>>(filename: P, paths: &mut Vec<String>) {
                     Ok(line) => {
                         paths.push(line);
                     },
-                    Err(_) => {
-                        println!("safe-rm: Invalid line found in {} and ignored.", filename.as_ref().display());
-                    }
+                    Err(_) => println!("safe-rm: Invalid line found in {} and ignored.", filename.as_ref().display())
                 }
             }
         },
-        Err(_) => {
-            println!("safe-rm: Could not open configuration file: {}", filename.as_ref().display());
-            ()
-        }
+        Err(_) => println!("safe-rm: Could not open configuration file: {}", filename.as_ref().display())
     }
 }
 
@@ -106,15 +101,12 @@ fn test_normalize_path() {
     assert_eq!(normalize_path("/tmp/�/"), "/tmp/�/");
 }
 
-fn filter_pathnames(args: impl Iterator<Item = String>, protected_paths: &Vec<String>) -> Vec<String> {
+fn filter_pathnames(args: impl Iterator<Item = String>, protected_paths: &[String]) -> Vec<String> {
     let mut filtered_args = Vec::new();
     for pathname in args {
         let mut is_symlink = false;
-        match fs::symlink_metadata(&pathname) {
-            Ok(metadata) => {
-                is_symlink = metadata.file_type().is_symlink();
-            },
-            Err(_) => ()
+        if let Ok(metadata) = fs::symlink_metadata(&pathname) {
+            is_symlink = metadata.file_type().is_symlink();
         }
 
         let normalized_pathname = normalize_path(&pathname);
@@ -187,13 +179,10 @@ fn read_config_files() -> Vec<String> {
     let mut protected_paths = Vec::new();
     read_config(GLOBAL_CONFIG, &mut protected_paths);
     read_config(LOCAL_GLOBAL_CONFIG, &mut protected_paths);
-    match std::env::var("HOME") {
-        Ok(value) => {
-            let home_dir = Path::new(&value);
-            read_config(&home_dir.join(Path::new(USER_CONFIG)), &mut protected_paths);
-            read_config(&home_dir.join(Path::new(LEGACY_USER_CONFIG)), &mut protected_paths);
-        },
-        Err(_) => ()
+    if let Ok(value) = std::env::var("HOME") {
+        let home_dir = Path::new(&value);
+        read_config(&home_dir.join(Path::new(USER_CONFIG)), &mut protected_paths);
+        read_config(&home_dir.join(Path::new(LEGACY_USER_CONFIG)), &mut protected_paths);
     }
     protected_paths
 }
