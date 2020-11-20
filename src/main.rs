@@ -65,6 +65,7 @@ fn read_config<P: AsRef<Path>>(filename: P, paths: &mut Vec<String>) {
             for line_result in reader.lines() {
                 match line_result {
                     Ok(line) => {
+                        // TODO: handle any globs in this entry
                         paths.push(line);
                     }
                     Err(_) => println!(
