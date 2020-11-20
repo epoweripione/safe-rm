@@ -68,13 +68,13 @@ fn read_config<P: AsRef<Path>>(filename: P, paths: &mut Vec<String>) {
                         paths.push(line);
                     },
                     Err(_) => {
-                        println!("Invalid line found in {} and ignored.", filename.as_ref().display());
+                        println!("safe-rm: Invalid line found in {} and ignored.", filename.as_ref().display());
                     }
                 }
             }
         },
         Err(_) => {
-            println!("Could not open configuration file: {}", filename.as_ref().display());
+            println!("safe-rm: Could not open configuration file: {}", filename.as_ref().display());
             ()
         }
     }
@@ -119,7 +119,7 @@ fn filter_pathnames(args: impl Iterator<Item = String>, protected_paths: &Vec<St
 
         let normalized_pathname = normalize_path(&pathname);
         if protected_paths.contains(&normalized_pathname) && !is_symlink {
-            println!("safe-rm: skipping {}", pathname);
+            println!("safe-rm: Skipping {}.", pathname);
         } else {
             filtered_args.push(pathname);
         }
@@ -201,7 +201,7 @@ fn read_config_files() -> Vec<String> {
 fn main() {
     // Make sure we're not calling ourselves recursively.
     if fs::canonicalize(REAL_RM).unwrap() == fs::canonicalize(std::env::current_exe().unwrap()).unwrap() {
-        println!("safe-rm cannot find the real \"rm\" binary");
+        println!("safe-rm: Cannot find the real \"rm\" binary.");
         process::exit(1);
     }
 
@@ -219,7 +219,7 @@ fn main() {
             }
         },
         Err(_) => {
-            println!("Failed to run the {} command.", REAL_RM);
+            println!("safe-rm: Failed to run the {} command.", REAL_RM);
             process::exit(1);
         }
     }
