@@ -156,6 +156,12 @@ fn test_filter_pathnames() {
 }
 
 fn main() {
+    // Make sure we're not calling ourselves recursively.
+    if fs::canonicalize(REAL_RM).unwrap() == fs::canonicalize(std::env::current_exe().unwrap()).unwrap() {
+        println!("safe-rm cannot find the real \"rm\" binary");
+        process::exit(1);
+    }
+
     let mut protected_paths = Vec::new();
 
     read_config(GLOBAL_CONFIG, &mut protected_paths);
@@ -179,12 +185,6 @@ fn main() {
     println!("{:#?}", protected_paths);  // TODO: remove this line
 
     let filtered_args = filter_pathnames(std::env::args().skip(1), &protected_paths);
-
-    // Make sure we're not calling ourselves recursively.
-    if fs::canonicalize(REAL_RM).unwrap() == fs::canonicalize(std::env::current_exe().unwrap()).unwrap() {
-        println!("safe-rm cannot find the real \"rm\" binary");
-        process::exit(1);
-    }
 
     println!("{} {:#?}", REAL_RM, filtered_args);  // TODO: remove this line
     // TODO: Run the real rm command, returning with the same error code
