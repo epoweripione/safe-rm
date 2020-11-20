@@ -155,15 +155,38 @@ fn test_filter_pathnames() {
                vec!["/unsafe".to_string()]);
 }
 
-fn main() {
-    // Make sure we're not calling ourselves recursively.
-    if fs::canonicalize(REAL_RM).unwrap() == fs::canonicalize(std::env::current_exe().unwrap()).unwrap() {
-        println!("safe-rm cannot find the real \"rm\" binary");
-        process::exit(1);
+fn finalize_protected_paths(protected_paths: &mut Vec<String>) {
+    if protected_paths.is_empty() {
+        for path in DEFAULT_PATHS {
+            protected_paths.push(path.to_string());
+        }
     }
+    protected_paths.sort();
+    protected_paths.dedup();
+    println!("{:#?}", protected_paths);  // TODO: remove this line
+}
 
+#[test]
+fn test_finalize_protected_paths() {
+    {
+        let mut paths = vec![];
+        finalize_protected_paths(&mut paths);
+        assert_eq!(paths, DEFAULT_PATHS);
+    }
+    {
+        let mut paths = vec!["/two".to_string(), "/one".to_string()];
+        finalize_protected_paths(&mut paths);
+        assert_eq!(paths, vec!["/one".to_string(), "/two".to_string()]);
+    }
+    {
+        let mut paths = vec!["/one".to_string(), "/one".to_string()];
+        finalize_protected_paths(&mut paths);
+        assert_eq!(paths, vec!["/one".to_string()]);
+    }
+}
+
+fn read_config_files() -> Vec<String> {
     let mut protected_paths = Vec::new();
-
     read_config(GLOBAL_CONFIG, &mut protected_paths);
     read_config(LOCAL_GLOBAL_CONFIG, &mut protected_paths);
     match std::env::var("HOME") {
@@ -174,15 +197,18 @@ fn main() {
         },
         Err(_) => ()
     }
+    protected_paths
+}
 
-    if protected_paths.is_empty() {
-        for path in DEFAULT_PATHS {
-            protected_paths.push(path.to_string());
-        }
+fn main() {
+    // Make sure we're not calling ourselves recursively.
+    if fs::canonicalize(REAL_RM).unwrap() == fs::canonicalize(std::env::current_exe().unwrap()).unwrap() {
+        println!("safe-rm cannot find the real \"rm\" binary");
+        process::exit(1);
     }
-    protected_paths.sort();
-    protected_paths.dedup();
-    println!("{:#?}", protected_paths);  // TODO: remove this line
+
+    let mut protected_paths = read_config_files();
+    finalize_protected_paths(&mut protected_paths);
 
     let filtered_args = filter_pathnames(std::env::args().skip(1), &protected_paths);
 
