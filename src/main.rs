@@ -118,7 +118,6 @@ fn filter_pathnames(args: impl Iterator<Item = String>, protected_paths: &Vec<St
         }
 
         let normalized_pathname = normalize_path(&pathname);
-        println!("{} -> {}", pathname, normalized_pathname); // TODO: remove this line
         if protected_paths.contains(&normalized_pathname) && !is_symlink {
             println!("safe-rm: skipping {}", pathname);
         } else {
@@ -163,7 +162,6 @@ fn finalize_protected_paths(protected_paths: &mut Vec<String>) {
     }
     protected_paths.sort();
     protected_paths.dedup();
-    println!("{:#?}", protected_paths);  // TODO: remove this line
 }
 
 #[test]
@@ -212,6 +210,17 @@ fn main() {
 
     let filtered_args = filter_pathnames(std::env::args().skip(1), &protected_paths);
 
-    println!("{} {:#?}", REAL_RM, filtered_args);  // TODO: remove this line
-    // TODO: Run the real rm command, returning with the same error code
+    // Run the real rm command, returning with the same error code.
+    match process::Command::new(REAL_RM).args(&filtered_args).status() {
+        Ok(status) => {
+            match status.code() {
+                Some(code) => process::exit(code),
+                None => process::exit(1)
+            }
+        },
+        Err(_) => {
+            println!("Failed to run the {} command.", REAL_RM);
+            process::exit(1);
+        }
+    }
 }
