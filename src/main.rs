@@ -66,26 +66,28 @@ fn read_config<P: AsRef<Path>>(filename: P, paths: &mut Vec<String>) {
                 match line_result {
                     Ok(line) => {
                         paths.push(line);
-                    },
-                    Err(_) => println!("safe-rm: Invalid line found in {} and ignored.", filename.as_ref().display())
+                    }
+                    Err(_) => println!(
+                        "safe-rm: Invalid line found in {} and ignored.",
+                        filename.as_ref().display()
+                    ),
                 }
             }
-        },
-        Err(_) => println!("safe-rm: Could not open configuration file: {}", filename.as_ref().display())
+        }
+        Err(_) => println!(
+            "safe-rm: Could not open configuration file: {}",
+            filename.as_ref().display()
+        ),
     }
 }
 
 fn normalize_path(pathname: &str) -> String {
     match fs::canonicalize(pathname) {
-        Ok(normalized_pathname) => {
-            match normalized_pathname.to_str() {
-                Some(normalized_pathname_str) => {
-                    normalized_pathname_str.to_string()
-                },
-                None => pathname.to_string()
-            }
+        Ok(normalized_pathname) => match normalized_pathname.to_str() {
+            Some(normalized_pathname_str) => normalized_pathname_str.to_string(),
+            None => pathname.to_string(),
         },
-        Err(_) => pathname.to_string()
+        Err(_) => pathname.to_string(),
     }
 }
 
@@ -122,28 +124,46 @@ fn filter_pathnames(args: impl Iterator<Item = String>, protected_paths: &[Strin
 #[test]
 fn test_filter_pathnames() {
     // Simple cases
-    assert_eq!(filter_pathnames(vec!["/safe".to_string()].into_iter(),
-                                &vec!["/safe".to_string()]),
-               Vec::<String>::new());
-    assert_eq!(filter_pathnames(vec!["/safe".to_string(), "/unsafe".to_string()].into_iter(),
-                                &vec!["/safe".to_string()]),
-               vec!["/unsafe".to_string()]);
+    assert_eq!(
+        filter_pathnames(
+            vec!["/safe".to_string()].into_iter(),
+            &vec!["/safe".to_string()]
+        ),
+        Vec::<String>::new()
+    );
+    assert_eq!(
+        filter_pathnames(
+            vec!["/safe".to_string(), "/unsafe".to_string()].into_iter(),
+            &vec!["/safe".to_string()]
+        ),
+        vec!["/unsafe".to_string()]
+    );
 
     // Degenerate cases
-    assert_eq!(filter_pathnames(Vec::<String>::new().into_iter(),
-                                &Vec::<String>::new()),
-               Vec::<String>::new());
-    assert_eq!(filter_pathnames(vec!["/safe".to_string(), "/unsafe".to_string()].into_iter(),
-                                &Vec::<String>::new()),
-               vec!["/safe".to_string(), "/unsafe".to_string()]);
-    assert_eq!(filter_pathnames(Vec::<String>::new().into_iter(),
-                                &vec!["/safe".to_string()]),
-               Vec::<String>::new());
+    assert_eq!(
+        filter_pathnames(Vec::<String>::new().into_iter(), &Vec::<String>::new()),
+        Vec::<String>::new()
+    );
+    assert_eq!(
+        filter_pathnames(
+            vec!["/safe".to_string(), "/unsafe".to_string()].into_iter(),
+            &Vec::<String>::new()
+        ),
+        vec!["/safe".to_string(), "/unsafe".to_string()]
+    );
+    assert_eq!(
+        filter_pathnames(Vec::<String>::new().into_iter(), &vec!["/safe".to_string()]),
+        Vec::<String>::new()
+    );
 
     // Relative path
-    assert_eq!(filter_pathnames(vec!["/../".to_string(), "/unsafe".to_string()].into_iter(),
-                                &vec!["/".to_string()]),
-               vec!["/unsafe".to_string()]);
+    assert_eq!(
+        filter_pathnames(
+            vec!["/../".to_string(), "/unsafe".to_string()].into_iter(),
+            &vec!["/".to_string()]
+        ),
+        vec!["/unsafe".to_string()]
+    );
 }
 
 fn finalize_protected_paths(protected_paths: &mut Vec<String>) {
@@ -182,14 +202,19 @@ fn read_config_files() -> Vec<String> {
     if let Ok(value) = std::env::var("HOME") {
         let home_dir = Path::new(&value);
         read_config(&home_dir.join(Path::new(USER_CONFIG)), &mut protected_paths);
-        read_config(&home_dir.join(Path::new(LEGACY_USER_CONFIG)), &mut protected_paths);
+        read_config(
+            &home_dir.join(Path::new(LEGACY_USER_CONFIG)),
+            &mut protected_paths,
+        );
     }
     protected_paths
 }
 
 fn main() {
     // Make sure we're not calling ourselves recursively.
-    if fs::canonicalize(REAL_RM).unwrap() == fs::canonicalize(std::env::current_exe().unwrap()).unwrap() {
+    if fs::canonicalize(REAL_RM).unwrap()
+        == fs::canonicalize(std::env::current_exe().unwrap()).unwrap()
+    {
         println!("safe-rm: Cannot find the real \"rm\" binary.");
         process::exit(1);
     }
@@ -201,11 +226,9 @@ fn main() {
 
     // Run the real rm command, returning with the same error code.
     match process::Command::new(REAL_RM).args(&filtered_args).status() {
-        Ok(status) => {
-            match status.code() {
-                Some(code) => process::exit(code),
-                None => process::exit(1)
-            }
+        Ok(status) => match status.code() {
+            Some(code) => process::exit(code),
+            None => process::exit(1),
         },
         Err(_) => {
             println!("safe-rm: Failed to run the {} command.", REAL_RM);
