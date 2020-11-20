@@ -11,7 +11,7 @@ $(TARBALL):
 	rm -rf $(BUILDDIR)
 
 clean:
-	-rm -rf $(TARBALL) $(BUILDDIR)
+	-rm -rf $(TARBALL) $(BUILDDIR) target
 
 test:
 	cargo check
