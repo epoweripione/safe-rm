@@ -56,6 +56,8 @@ const DEFAULT_PATHS: &[&str] = &[
     "/var",
 ];
 
+const MAX_GLOB_EXPANSION: usize = 256;
+
 fn read_config<P: AsRef<Path>>(filename: P, mut paths: &mut Vec<String>) {
     if !filename.as_ref().exists() {
         return;
@@ -78,13 +80,22 @@ fn parse_line(filename: Display, line_result: io::Result<String>, paths: &mut Ve
     match line_result {
         Ok(line) => match glob(&line) {
             Ok(entries) => {
-                // TODO: put a bound on the number of entries
+                let mut count = 0;
                 for entry in entries {
                     match entry {
-                        Ok(path) => match path.to_str() {
-                            Some(path_str) => paths.push(path_str.to_string()),
-                            None => (),
-                        },
+                        Ok(path) => {
+                            if let Some(path_str) = path.to_str() {
+                                count += 1;
+                                if count > MAX_GLOB_EXPANSION {
+                                    println!(
+                                    "safe-rm: Glob \"{}\" found in {} expands to more than {} paths. Ignoring the rest.",
+                                    line, filename, MAX_GLOB_EXPANSION
+                                );
+                                    return;
+                                }
+                                paths.push(path_str.to_string());
+                            }
+                        }
                         Err(_) => println!(
                             "safe-rm: Ignored unreadable path while expanding glob \"{}\" from {}.",
                             line, filename
@@ -122,6 +133,11 @@ fn test_parse_line() {
             &mut paths,
         );
         assert_eq!(paths, Vec::<String>::new());
+    }
+    {
+        let mut paths = Vec::new();
+        parse_line(filename.display(), Ok("/**".to_string()), &mut paths);
+        assert_eq!(paths.len(), MAX_GLOB_EXPANSION);
     }
     {
         let mut paths = Vec::new();
