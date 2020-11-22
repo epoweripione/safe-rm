@@ -13,10 +13,11 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+use glob::glob;
 use std::fs;
 use std::fs::File;
 use std::io::{self, BufRead};
-use std::path::Path;
+use std::path::{Display, Path};
 use std::process;
 
 const GLOBAL_CONFIG: &str = "/etc/safe-rm.conf";
@@ -55,7 +56,7 @@ const DEFAULT_PATHS: &[&str] = &[
     "/var",
 ];
 
-fn read_config<P: AsRef<Path>>(filename: P, paths: &mut Vec<String>) {
+fn read_config<P: AsRef<Path>>(filename: P, mut paths: &mut Vec<String>) {
     if !filename.as_ref().exists() {
         return;
     }
@@ -63,22 +64,73 @@ fn read_config<P: AsRef<Path>>(filename: P, paths: &mut Vec<String>) {
         Ok(f) => {
             let reader = io::BufReader::new(f);
             for line_result in reader.lines() {
-                match line_result {
-                    Ok(line) => {
-                        // TODO: handle any globs in this entry
-                        paths.push(line);
-                    }
-                    Err(_) => println!(
-                        "safe-rm: Invalid line found in {} and ignored.",
-                        filename.as_ref().display()
-                    ),
-                }
+                parse_line(filename.as_ref().display(), line_result, &mut paths);
             }
         }
         Err(_) => println!(
             "safe-rm: Could not open configuration file: {}",
             filename.as_ref().display()
         ),
+    }
+}
+
+fn parse_line(filename: Display, line_result: io::Result<String>, paths: &mut Vec<String>) {
+    match line_result {
+        Ok(line) => match glob(&line) {
+            Ok(entries) => {
+                // TODO: put a bound on the number of entries
+                for entry in entries {
+                    match entry {
+                        Ok(path) => match path.to_str() {
+                            Some(path_str) => paths.push(path_str.to_string()),
+                            None => (),
+                        },
+                        Err(_) => println!(
+                            "safe-rm: Ignored unreadable path while expanding glob \"{}\" from {}.",
+                            line, filename
+                        ),
+                    }
+                }
+            }
+            Err(_) => println!(
+                "safe-rm: Invalid glob pattern \"{}\" found in {} and ignored.",
+                line, filename
+            ),
+        },
+        Err(_) => println!("safe-rm: Invalid line found in {} and ignored.", filename),
+    }
+}
+
+#[test]
+fn test_parse_line() {
+    let filename = Path::new("/");
+    {
+        let mut paths = Vec::new();
+        parse_line(filename.display(), Ok("/�".to_string()), &mut paths);
+        assert_eq!(paths, Vec::<String>::new());
+    }
+    {
+        let mut paths = Vec::new();
+        parse_line(filename.display(), Ok("/".to_string()), &mut paths);
+        assert_eq!(paths, vec!["/".to_string()]);
+    }
+    {
+        let mut paths = Vec::new();
+        parse_line(
+            filename.display(),
+            Ok("/usr/***/bin".to_string()),
+            &mut paths,
+        );
+        assert_eq!(paths, Vec::<String>::new());
+    }
+    {
+        let mut paths = Vec::new();
+        parse_line(
+            filename.display(),
+            Err(std::io::Error::new(std::io::ErrorKind::Other, "")),
+            &mut paths,
+        );
+        assert_eq!(paths, Vec::<String>::new());
     }
 }
 
