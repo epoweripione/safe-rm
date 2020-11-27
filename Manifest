@@ -5,4 +5,5 @@ COPYING
 INSTALL
 Makefile
 README.md
+safe-rm.1
 src/
