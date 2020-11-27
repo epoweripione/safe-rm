@@ -1,16 +1,10 @@
 Manual test suite before a release
 
-- remove only /etc/safe-rm.conf and try to delete a missing file
-- remove /etc/safe-rm.conf and ~/.config/safe-rm and try to delete a missing file
-- remove /etc/safe-rm.conf and ~/.config/safe-rm and try to delete /usr/lib (should fail)
-- remove only ~/.config/safe-rm and try to delete a missing file
-
 - remove a missing file and make sure the return value is nonzero
 - touch a file and delete it
 - attempt to delete (as a normal user) /usr/lib (which is in /etc/safe-rm.conf)
 - attempt to delete a directory which is in ~/.config/safe-rm without using "-r"
 
-- delete the root directory (/)
 - delete a protected path in the current directory using the absolute name
 - delete a protected path in the current directory using just the relative filename
 - delete a protected path in the current directory using the filename prefixed by ./
