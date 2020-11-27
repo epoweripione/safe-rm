@@ -1,5 +1,8 @@
+Cargo.lock
+Cargo.toml
 Changes
 COPYING
 INSTALL
+Makefile
 README.md
-safe-rm
+src/
