@@ -2,4 +2,4 @@ Changes
 COPYING
 INSTALL
 README.md
-safe-rm
+target/release/safe-rm

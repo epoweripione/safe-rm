@@ -1,17 +1,22 @@
 VERSION=$(shell grep "^[^ ]" Changes | head -1 | cut -f1 -d' ')
+BINARY=target/release/safe-rm
 BUILDDIR=safe-rm-$(VERSION)
 TARBALL=safe-rm-$(VERSION).tar.gz
 
-dist: $(TARBALL)
+$(BINARY):
+	cargo build --release
 
-$(TARBALL):
+dist: $(TARBALL)
+	gpg --armor --sign --detach-sig $(TARBALL)
+
+$(TARBALL): $(BINARY)
 	mkdir $(BUILDDIR)
 	cp `cat Manifest` $(BUILDDIR)
-	tar zcf safe-rm-$(VERSION).tar.gz $(BUILDDIR)
+	tar zcf $(TARBALL) $(BUILDDIR)
 	rm -rf $(BUILDDIR)
 
 clean:
-	-rm -rf $(TARBALL) $(BUILDDIR) target
+	-rm -rf $(TARBALL) $(TARBALL).asc $(BUILDDIR) target
 
 test:
 	cargo check

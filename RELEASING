@@ -1,17 +1,15 @@
 - update and date the changelog
 - bump the version number in the source file
-- run the "test suite"
+- run `make test` and do the manual tests in TESTING
 
 - tag and push the code
 
-git tag -s safe-rm-VERSION -m "New upstream release"
-git push
-git push --tags
+    git tag -s safe-rm-VERSION -m "New upstream release"
+    git push --follow-tags
 
-- build the tarball using "make dist"
+- build the tarball using `make dist`
 - upload the tarball to Launchpad (empty changelog, fill in release notes):
 
-gpg --armor --sign --detach-sig safe-rm-VERSION.tar.gz
 lp-project-upload safe-rm VERSION safe-rm-VERSION.tar.gz
 
 - update and upload the Debian package
