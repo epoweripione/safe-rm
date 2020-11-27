@@ -8,3 +8,8 @@ For example, if your path contains:
 
 Then, putting safe-rm in /usr/local/bin and renaming it to "rm" will ensure that
 all users on your system use safe-rm instead of the real rm.
+
+Alternatively, symlink the safe-rm binary into a location like /usr/share/safe-rm/bin/rm
+and then set the following in your shell:
+
+  PATH="/usr/share/safe-rm/bin:$PATH"
