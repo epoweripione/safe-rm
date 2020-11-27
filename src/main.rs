@@ -128,6 +128,11 @@ fn test_parse_line() {
     }
     {
         let mut paths = Vec::new();
+        parse_line(filename.display(), Ok("/tmp/".to_string()), &mut paths);
+        assert_eq!(paths, vec!["/tmp".to_string()]);
+    }
+    {
+        let mut paths = Vec::new();
         parse_line(
             filename.display(),
             Ok("/usr/***/bin".to_string()),
