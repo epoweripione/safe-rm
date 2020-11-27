@@ -1,3 +1,9 @@
+1.0.0 (2020-11-26)
+  - Rewrite in Rust (bug #1854103).
+  - Add a recursion limit of 256 paths for glob expansion (bug #901916).
+  - Protect /usr/bin/env by default (bug #1854102).
+  - Properly handle trailing slashes (bug #1398437).
+
 0.13 (2020-09-05)
   - Add /usr/local/etc/safe-rm.conf as alternative config file (bug #1893500).
   - Upgrade links to HTTPS and fix dead ones.
