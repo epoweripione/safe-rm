@@ -43,7 +43,6 @@ const DEFAULT_PATHS: &[&str] = &[
     "/sys",
     "/usr",
     "/usr/bin",
-    "/usr/bin/env",
     "/usr/include",
     "/usr/lib",
     "/usr/local",
