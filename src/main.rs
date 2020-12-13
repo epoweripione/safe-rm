@@ -14,10 +14,9 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 use glob::glob;
-use std::fs;
-use std::fs::File;
+use std::fs::{self, File};
 use std::io::{self, BufRead};
-use std::path::{Display, Path};
+use std::path::{self, Path};
 use std::process;
 
 const GLOBAL_CONFIG: &str = "/etc/safe-rm.conf";
@@ -76,7 +75,7 @@ fn read_config<P: AsRef<Path>>(filename: P, mut paths: &mut Vec<String>) {
     }
 }
 
-fn parse_line(filename: Display, line_result: io::Result<String>, paths: &mut Vec<String>) {
+fn parse_line(filename: path::Display, line_result: io::Result<String>, paths: &mut Vec<String>) {
     match line_result {
         Ok(line) => match glob(&line) {
             Ok(entries) => {
@@ -148,7 +147,7 @@ fn test_parse_line() {
         let mut paths = Vec::new();
         parse_line(
             filename.display(),
-            Err(std::io::Error::new(std::io::ErrorKind::Other, "")),
+            Err(io::Error::new(io::ErrorKind::Other, "")),
             &mut paths,
         );
         assert_eq!(paths, Vec::<String>::new());
