@@ -154,8 +154,94 @@ fn test_parse_line() {
     }
 }
 
+fn symlink_canonicalize(path: &Path) -> Option<String> {
+    // Relative paths need to be prefixed by "./" to have a parent dir.
+    let mut explicit_path = path.to_path_buf();
+    if let Some(first_char) = path.to_string_lossy().chars().next() {
+        if first_char != '/' {
+            explicit_path = Path::new(".").join(path);
+        }
+    }
+
+    // Convert from relative to absolute path but don't follow the symlink.
+    // We do this by:
+    // 1. splitting directory and base file name
+    // 2. canonicalizing the directory
+    // 3. recombining directory and file name
+    let parent: Option<path::PathBuf> = match explicit_path.parent() {
+        Some(dir) => match dir.canonicalize() {
+            Ok(normalized_parent) => Some(normalized_parent),
+            Err(_) => None,
+        },
+        None => Some(Path::new("/").to_path_buf()),
+    };
+    return match parent {
+        Some(dir) => match path.file_name() {
+            Some(file_name) => match dir.join(file_name).to_str() {
+                Some(pathname_str) => Some(pathname_str.to_string()),
+                None => None,
+            },
+            None => match dir.parent() {
+                // file_name == ".."
+                Some(parent_dir) => match parent_dir.to_str() {
+                    Some(parent_str) => Some(parent_str.to_string()),
+                    None => None,
+                },
+                None => Some("/".to_string()), // Stop at the root.
+            },
+        },
+        None => None,
+    };
+}
+
+#[test]
+fn test_symlink_canonicalize() {
+    assert_eq!(
+        symlink_canonicalize(Path::new("/usr/bin")),
+        Some("/usr/bin".to_string())
+    );
+    assert_eq!(
+        symlink_canonicalize(Path::new("/usr/bin/../bin/sh")),
+        Some("/usr/bin/sh".to_string())
+    );
+    assert_eq!(
+        symlink_canonicalize(Path::new("/usr/")),
+        Some("/usr".to_string())
+    );
+    assert_eq!(
+        symlink_canonicalize(Path::new("/usr/.")),
+        Some("/usr".to_string())
+    );
+    assert_eq!(
+        symlink_canonicalize(Path::new("/usr/bin/./.././local")),
+        Some("/usr/local".to_string())
+    );
+    assert_eq!(
+        symlink_canonicalize(Path::new("/usr/..")),
+        Some("/".to_string())
+    );
+    assert_eq!(symlink_canonicalize(Path::new("/")), Some("/".to_string()));
+    assert_eq!(
+        symlink_canonicalize(Path::new("/..")),
+        Some("/".to_string())
+    );
+}
+
 fn normalize_path(pathname: &str) -> String {
-    match fs::canonicalize(pathname) {
+    let path = Path::new(pathname);
+
+    // Handle symlinks.
+    if let Ok(metadata) = path.symlink_metadata() {
+        if metadata.file_type().is_symlink() {
+            return match symlink_canonicalize(&path) {
+                Some(normalized_path) => normalized_path,
+                None => pathname.to_string(),
+            };
+        }
+    }
+
+    // Handle normal files.
+    match path.canonicalize() {
         Ok(normalized_pathname) => match normalized_pathname.to_str() {
             Some(normalized_pathname_str) => normalized_pathname_str.to_string(),
             None => pathname.to_string(),
@@ -179,13 +265,8 @@ fn test_normalize_path() {
 fn filter_pathnames(args: impl Iterator<Item = String>, protected_paths: &[String]) -> Vec<String> {
     let mut filtered_args = Vec::new();
     for pathname in args {
-        let mut is_symlink = false;
-        if let Ok(metadata) = fs::symlink_metadata(&pathname) {
-            is_symlink = metadata.file_type().is_symlink();
-        }
-
         let normalized_pathname = normalize_path(&pathname);
-        if protected_paths.contains(&normalized_pathname) && !is_symlink {
+        if protected_paths.contains(&normalized_pathname) {
             println!("safe-rm: Skipping {}.", pathname);
         } else {
             filtered_args.push(pathname);
