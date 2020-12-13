@@ -15,6 +15,4 @@ Manual test suite before a release
 - put /home/* in ~/.config/safe-rm and run "rm /home/*"
 - put several files in as arguments, one of which should be skipped, check that the other ones are deleted
 
-- symlink /usr/lib into the current directory and delete the symlink (it should work)
-
 - run "man safe-rm" and skim the manual for obvious mistakes

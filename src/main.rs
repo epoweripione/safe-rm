@@ -318,6 +318,52 @@ fn test_filter_pathnames() {
         ),
         vec!["/unsafe".to_string()]
     );
+
+    // Symlink tests
+    {
+        use std::os::unix::fs;
+        use tempfile::tempdir;
+
+        let dir = tempdir().unwrap();
+        let empty_file = dir.path().join("empty").to_str().unwrap().to_string();
+        File::create(&empty_file).unwrap();
+
+        // Normal symlinks should not be protected.
+        let unprotected_symlink = dir
+            .path()
+            .join("unprotected_symlink")
+            .to_str()
+            .unwrap()
+            .to_string();
+        fs::symlink(&empty_file, &unprotected_symlink).unwrap();
+
+        // A symlink explicitly listed in a config file should be protected.
+        let protected_symlink = dir
+            .path()
+            .join("protected_symlink")
+            .to_str()
+            .unwrap()
+            .to_string();
+        fs::symlink(&empty_file, &protected_symlink).unwrap();
+
+        // A symlink to a protected file should not be protected itself.
+        let symlink_to_protected_file = dir.path().join("usr").to_str().unwrap().to_string();
+        fs::symlink("/usr", &symlink_to_protected_file).unwrap();
+
+        assert_eq!(
+            filter_pathnames(
+                vec![
+                    empty_file.clone(),
+                    unprotected_symlink.clone(),
+                    protected_symlink.clone(),
+                    symlink_to_protected_file.clone()
+                ]
+                .into_iter(),
+                &vec!["/usr".to_string(), protected_symlink.clone()]
+            ),
+            vec![empty_file, unprotected_symlink, symlink_to_protected_file]
+        );
+    }
 }
 
 fn finalize_protected_paths(protected_paths: &mut Vec<String>) {
