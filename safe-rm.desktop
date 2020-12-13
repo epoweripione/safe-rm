@@ -1,0 +1,13 @@
+# Desktop entry for safe-rm right-click menu
+
+[Desktop Entry]
+Version=1.0
+Type=Service
+Name=safe-rm
+Comment=A small safeguard against accidental removal of important files
+Actions=add;
+X-KDE-ServiceTypes=all/allfiles,inode/directory,KonqPopupMenu/Plugin
+
+[Desktop Action add]
+Exec=bash -c 'for i in "$@" ; do echo "$i" >> ${HOME}/.config/safe-rm; done' dummy %F
+Name=Add to safe-rm protection list

@@ -6,4 +6,5 @@ INSTALL
 Makefile
 README.md
 safe-rm.1
+safe-rm.desktop
 src/
