@@ -263,6 +263,19 @@ fn test_symlink_canonicalize() {
         symlink_canonicalize(Path::new("/..")),
         Some("/".to_string())
     );
+    assert_eq!(
+        symlink_canonicalize(Path::new("/usr/bin")),
+        Some("/usr/bin".to_string())
+    );
+
+    // Relative path
+    assert!(symlink_canonicalize(Path::new("Cargo.toml")).unwrap().len() > 10);
+
+    // Non-existent path
+    assert_eq!(
+        symlink_canonicalize(Path::new("/non/existent/path/to/file")),
+        None
+    );
 }
 
 fn normalize_path(pathname: &str) -> String {
