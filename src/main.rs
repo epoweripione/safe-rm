@@ -57,9 +57,9 @@ const DEFAULT_PATHS: &[&str] = &[
 
 const MAX_GLOB_EXPANSION: usize = 256;
 
-fn read_config<P: AsRef<Path>>(filename: P, mut paths: &mut Vec<String>) {
+fn read_config<P: AsRef<Path>>(filename: P, mut paths: &mut Vec<String>) -> bool {
     if !filename.as_ref().exists() {
-        return;
+        return true;
     }
     match File::open(&filename) {
         Ok(f) => {
@@ -67,11 +67,49 @@ fn read_config<P: AsRef<Path>>(filename: P, mut paths: &mut Vec<String>) {
             for line_result in reader.lines() {
                 parse_line(filename.as_ref().display(), line_result, &mut paths);
             }
+            true
         }
-        Err(_) => println!(
-            "safe-rm: Could not open configuration file: {}",
-            filename.as_ref().display()
-        ),
+        Err(_) => {
+            println!(
+                "safe-rm: Could not open configuration file: {}",
+                filename.as_ref().display()
+            );
+            false
+        }
+    }
+}
+
+#[test]
+fn test_read_config() {
+    use std::io::Write;
+    use tempfile::tempdir;
+
+    let dir = tempdir().unwrap();
+    {
+        use std::os::unix::fs::PermissionsExt;
+
+        let mut paths = Vec::<String>::new();
+        let file_path = dir.path().join("oneline");
+        let mut file = File::create(&file_path).unwrap();
+        writeln!(file, "/home").unwrap();
+        assert!(read_config(&file_path, &mut paths));
+        assert_eq!(paths.len(), 1);
+        assert_eq!(paths, vec!["/home".to_string()]);
+
+        // Make the file unreadable and check for an error.
+        let mut perms = fs::metadata(&file_path).unwrap().permissions();
+        perms.set_mode(0o200); // not readable by anyone
+        fs::set_permissions(&file_path, perms).unwrap();
+        paths.clear();
+        assert!(!read_config(file_path, &mut paths));
+        assert_eq!(paths.len(), 0);
+    }
+    {
+        let mut paths = Vec::<String>::new();
+        let file_path = dir.path().join("empty");
+        File::create(&file_path).unwrap();
+        assert!(read_config(file_path, &mut paths));
+        assert_eq!(paths.len(), 0);
     }
 }
 
