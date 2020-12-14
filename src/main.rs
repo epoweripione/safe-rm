@@ -410,6 +410,55 @@ fn read_config_files() -> Vec<String> {
     protected_paths
 }
 
+fn run(args: impl Iterator<Item = String>) -> i32 {
+    let mut protected_paths = read_config_files();
+    finalize_protected_paths(&mut protected_paths);
+
+    let filtered_args = filter_pathnames(args, &protected_paths);
+
+    // Run the real rm command, returning with the same error code.
+    match process::Command::new(REAL_RM).args(&filtered_args).status() {
+        Ok(status) => match status.code() {
+            Some(code) => code,
+            None => 1,
+        },
+        Err(_) => {
+            println!("safe-rm: Failed to run the {} command.", REAL_RM);
+            1
+        }
+    }
+}
+
+#[test]
+fn test_run() {
+    use tempfile::tempdir;
+
+    let dir = tempdir().unwrap();
+    let empty_file = dir.path().join("empty").to_str().unwrap().to_string();
+    File::create(&empty_file).unwrap();
+    let missing_file = dir.path().join("missing").to_str().unwrap().to_string();
+
+    // Trying to delete a directory without "-r" should fail.
+    assert_eq!(
+        run(vec![dir.path().to_str().unwrap().to_string()].into_iter()),
+        1
+    );
+
+    // One file to delete, one directory to ignore.
+    assert_eq!(Path::new(&empty_file).exists(), true);
+    assert_eq!(
+        run(vec![empty_file.clone(), "/usr".to_string()].into_iter()),
+        0
+    );
+    assert_eq!(Path::new(&empty_file).exists(), false);
+
+    // Trying to delete a missing file should fail.
+    assert_eq!(run(vec![missing_file].into_iter()), 1);
+
+    // The "--help" option should work.
+    assert_eq!(run(vec!["--help".to_string()].into_iter()), 0);
+}
+
 fn main() {
     // Make sure we're not calling ourselves recursively.
     if fs::canonicalize(REAL_RM).unwrap()
@@ -419,20 +468,5 @@ fn main() {
         process::exit(1);
     }
 
-    let mut protected_paths = read_config_files();
-    finalize_protected_paths(&mut protected_paths);
-
-    let filtered_args = filter_pathnames(std::env::args().skip(1), &protected_paths);
-
-    // Run the real rm command, returning with the same error code.
-    match process::Command::new(REAL_RM).args(&filtered_args).status() {
-        Ok(status) => match status.code() {
-            Some(code) => process::exit(code),
-            None => process::exit(1),
-        },
-        Err(_) => {
-            println!("safe-rm: Failed to run the {} command.", REAL_RM);
-            process::exit(1);
-        }
-    }
+    process::exit(run(std::env::args().skip(1)));
 }
