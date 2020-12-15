@@ -197,10 +197,8 @@ fn test_parse_line() {
 fn symlink_canonicalize(path: &Path) -> Option<String> {
     // Relative paths need to be prefixed by "./" to have a parent dir.
     let mut explicit_path = path.to_path_buf();
-    if let Some(first_char) = path.to_string_lossy().chars().next() {
-        if first_char != '/' {
-            explicit_path = Path::new(".").join(path);
-        }
+    if explicit_path.is_relative() {
+        explicit_path = Path::new(".").join(path);
     }
 
     // Convert from relative to absolute path but don't follow the symlink.
