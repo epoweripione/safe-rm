@@ -512,14 +512,21 @@ fn test_run() {
     assert_eq!(run(vec!["--help".to_string()].into_iter()), 0);
 }
 
-fn main() {
+fn ensure_real_rm_is_callable() -> io::Result<()> {
     // Make sure we're not calling ourselves recursively.
-    if fs::canonicalize(REAL_RM).unwrap()
-        == fs::canonicalize(std::env::current_exe().unwrap()).unwrap()
-    {
+    if fs::canonicalize(REAL_RM)? == fs::canonicalize(std::env::current_exe()?)? {
         println!("safe-rm: Cannot find the real \"rm\" binary.");
         process::exit(1);
     }
+    Ok(())
+}
 
+fn main() {
+    if let Err(e) = ensure_real_rm_is_callable() {
+        println!(
+            "safe-rm: Cannot check that the real \"rm\" binary is callable: {}",
+            e
+        );
+    }
     process::exit(run(std::env::args().skip(1)));
 }
