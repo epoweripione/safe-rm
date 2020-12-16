@@ -104,6 +104,10 @@ fn test_read_config() {
         perms.set_mode(0o200); // not readable by anyone
         fs::set_permissions(&file_path, perms).unwrap();
         assert!(read_config(&file_path).is_err());
+
+        // Missing file
+        let paths = read_config(dir.path().join("missing")).unwrap();
+        assert_eq!(paths.len(), 0);
     }
     {
         let file_path = dir.path().join("empty");
