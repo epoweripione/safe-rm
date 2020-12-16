@@ -59,24 +59,27 @@ const DEFAULT_PATHS: &[&str] = &[
 
 const MAX_GLOB_EXPANSION: usize = 256;
 
-fn read_config<P: AsRef<Path>>(filename: P, mut paths: &mut Vec<String>) -> bool {
+fn read_config<P: AsRef<Path>>(filename: P) -> io::Result<Vec<String>> {
+    let mut paths = Vec::new();
     if !filename.as_ref().exists() {
-        return true;
+        return Ok(paths);
     }
     match File::open(&filename) {
         Ok(f) => {
             let reader = io::BufReader::new(f);
             for line_result in reader.lines() {
-                parse_line(filename.as_ref().display(), line_result, &mut paths);
+                if let Some(line_paths) = parse_line(filename.as_ref().display(), line_result) {
+                    paths.extend(line_paths.into_iter());
+                }
             }
-            true
+            Ok(paths)
         }
-        Err(_) => {
+        Err(e) => {
             println!(
                 "safe-rm: Could not open configuration file: {}",
                 filename.as_ref().display()
             );
-            false
+            Err(e)
         }
     }
 }
@@ -90,11 +93,10 @@ fn test_read_config() {
     {
         use std::os::unix::fs::PermissionsExt;
 
-        let mut paths = Vec::<String>::new();
         let file_path = dir.path().join("oneline");
         let mut file = File::create(&file_path).unwrap();
         writeln!(file, "/home").unwrap();
-        assert!(read_config(&file_path, &mut paths));
+        let paths = read_config(&file_path).unwrap();
         assert_eq!(paths.len(), 1);
         assert_eq!(paths, vec!["/home".to_string()]);
 
@@ -102,20 +104,17 @@ fn test_read_config() {
         let mut perms = fs::metadata(&file_path).unwrap().permissions();
         perms.set_mode(0o200); // not readable by anyone
         fs::set_permissions(&file_path, perms).unwrap();
-        paths.clear();
-        assert!(!read_config(file_path, &mut paths));
-        assert_eq!(paths.len(), 0);
+        assert!(read_config(&file_path).is_err());
     }
     {
-        let mut paths = Vec::<String>::new();
         let file_path = dir.path().join("empty");
         File::create(&file_path).unwrap();
-        assert!(read_config(file_path, &mut paths));
-        assert_eq!(paths.len(), 0);
+        assert_eq!(read_config(&file_path).unwrap().len(), 0);
     }
 }
 
-fn parse_line(filename: path::Display, line_result: io::Result<String>, paths: &mut Vec<String>) {
+fn parse_line(filename: path::Display, line_result: io::Result<String>) -> Option<Vec<String>> {
+    let mut paths = Vec::new();
     match line_result {
         Ok(line) => match glob(&line) {
             Ok(entries) => {
@@ -127,10 +126,10 @@ fn parse_line(filename: path::Display, line_result: io::Result<String>, paths: &
                                 count += 1;
                                 if count > MAX_GLOB_EXPANSION {
                                     println!(
-                                    "safe-rm: Glob \"{}\" found in {} expands to more than {} paths. Ignoring the rest.",
-                                    line, filename, MAX_GLOB_EXPANSION
-                                );
-                                    return;
+                                        "safe-rm: Glob \"{}\" found in {} expands to more than {} paths. Ignoring the rest.",
+                                        line, filename, MAX_GLOB_EXPANSION
+                                    );
+                                    return Some(paths);
                                 }
                                 paths.push(path_str.to_string());
                             }
@@ -141,57 +140,56 @@ fn parse_line(filename: path::Display, line_result: io::Result<String>, paths: &
                         ),
                     }
                 }
+                Some(paths)
             }
-            Err(_) => println!(
-                "safe-rm: Invalid glob pattern \"{}\" found in {} and ignored.",
-                line, filename
-            ),
+            Err(_) => {
+                println!(
+                    "safe-rm: Invalid glob pattern \"{}\" found in {} and ignored.",
+                    line, filename
+                );
+                None
+            }
         },
-        Err(_) => println!("safe-rm: Invalid line found in {} and ignored.", filename),
+        Err(_) => {
+            println!("safe-rm: Invalid line found in {} and ignored.", filename);
+            None
+        }
     }
 }
 
 #[test]
 fn test_parse_line() {
     let filename = Path::new("/");
-    {
-        let mut paths = Vec::new();
-        parse_line(filename.display(), Ok("/�".to_string()), &mut paths);
-        assert_eq!(paths, Vec::<String>::new());
-    }
-    {
-        let mut paths = Vec::new();
-        parse_line(filename.display(), Ok("/".to_string()), &mut paths);
-        assert_eq!(paths, vec!["/".to_string()]);
-    }
-    {
-        let mut paths = Vec::new();
-        parse_line(filename.display(), Ok("/tmp/".to_string()), &mut paths);
-        assert_eq!(paths, vec!["/tmp".to_string()]);
-    }
-    {
-        let mut paths = Vec::new();
-        parse_line(
-            filename.display(),
-            Ok("/usr/***/bin".to_string()),
-            &mut paths,
-        );
-        assert_eq!(paths, Vec::<String>::new());
-    }
-    {
-        let mut paths = Vec::new();
-        parse_line(filename.display(), Ok("/**".to_string()), &mut paths);
-        assert_eq!(paths.len(), MAX_GLOB_EXPANSION);
-    }
-    {
-        let mut paths = Vec::new();
-        parse_line(
-            filename.display(),
-            Err(io::Error::new(io::ErrorKind::Other, "")),
-            &mut paths,
-        );
-        assert_eq!(paths, Vec::<String>::new());
-    }
+
+    // Invalid lines
+    assert_eq!(
+        parse_line(filename.display(), Ok("/�".to_string()))
+            .unwrap()
+            .len(),
+        0
+    );
+    assert!(parse_line(
+        filename.display(),
+        Err(io::Error::new(io::ErrorKind::Other, ""))
+    )
+    .is_none());
+    assert!(parse_line(filename.display(), Ok("/usr/***/bin".to_string())).is_none());
+
+    // Valid lines
+    assert_eq!(
+        parse_line(filename.display(), Ok("/".to_string())).unwrap(),
+        vec!["/".to_string()]
+    );
+    assert_eq!(
+        parse_line(filename.display(), Ok("/tmp/".to_string())).unwrap(),
+        vec!["/tmp".to_string()]
+    );
+    assert_eq!(
+        parse_line(filename.display(), Ok("/**".to_string()))
+            .unwrap()
+            .len(),
+        MAX_GLOB_EXPANSION
+    );
 }
 
 fn symlink_canonicalize(path: &Path) -> Option<String> {
@@ -448,15 +446,20 @@ fn test_finalize_protected_paths() {
 
 fn read_config_files() -> Vec<String> {
     let mut protected_paths = Vec::new();
-    read_config(GLOBAL_CONFIG, &mut protected_paths);
-    read_config(LOCAL_GLOBAL_CONFIG, &mut protected_paths);
+    if let Ok(paths) = read_config(GLOBAL_CONFIG) {
+        protected_paths.extend(paths.into_iter());
+    }
+    if let Ok(paths) = read_config(LOCAL_GLOBAL_CONFIG) {
+        protected_paths.extend(paths.into_iter());
+    }
     if let Ok(value) = std::env::var("HOME") {
         let home_dir = Path::new(&value);
-        read_config(&home_dir.join(Path::new(USER_CONFIG)), &mut protected_paths);
-        read_config(
-            &home_dir.join(Path::new(LEGACY_USER_CONFIG)),
-            &mut protected_paths,
-        );
+        if let Ok(paths) = read_config(&home_dir.join(Path::new(USER_CONFIG))) {
+            protected_paths.extend(paths.into_iter());
+        }
+        if let Ok(paths) = read_config(&home_dir.join(Path::new(LEGACY_USER_CONFIG))) {
+            protected_paths.extend(paths.into_iter());
+        }
     }
     protected_paths
 }
