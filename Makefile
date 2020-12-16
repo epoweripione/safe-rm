@@ -23,3 +23,9 @@ clean:
 test:
 	cargo check --all-targets
 	cargo test
+
+lint:
+	cargo-geiger --all-dependencies --quiet true
+	cargo audit --deny-warnings --quiet
+	cargo clippy --quiet
+	cargo tarpaulin --fail-under 90
