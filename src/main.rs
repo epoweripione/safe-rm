@@ -18,7 +18,7 @@
 use glob::glob;
 use std::fs::{self, File};
 use std::io::{self, BufRead};
-use std::path::{self, Path};
+use std::path::{self, Path, PathBuf};
 use std::process;
 
 const GLOBAL_CONFIG: &str = "/etc/safe-rm.conf";
@@ -59,7 +59,7 @@ const DEFAULT_PATHS: &[&str] = &[
 
 const MAX_GLOB_EXPANSION: usize = 256;
 
-fn read_config<P: AsRef<Path>>(filename: P) -> io::Result<Vec<String>> {
+fn read_config<P: AsRef<Path>>(filename: P) -> io::Result<Vec<PathBuf>> {
     let mut paths = Vec::new();
     if !filename.as_ref().exists() {
         return Ok(paths);
@@ -98,7 +98,7 @@ fn test_read_config() {
         writeln!(file, "/home").unwrap();
         let paths = read_config(&file_path).unwrap();
         assert_eq!(paths.len(), 1);
-        assert_eq!(paths, vec!["/home".to_string()]);
+        assert_eq!(paths, vec![PathBuf::from("/home")]);
 
         // Make the file unreadable and check for an error.
         let mut perms = fs::metadata(&file_path).unwrap().permissions();
@@ -113,7 +113,7 @@ fn test_read_config() {
     }
 }
 
-fn parse_line(filename: path::Display, line_result: io::Result<String>) -> Option<Vec<String>> {
+fn parse_line(filename: path::Display, line_result: io::Result<String>) -> Option<Vec<PathBuf>> {
     let mut paths = Vec::new();
     match line_result {
         Ok(line) => match glob(&line) {
@@ -122,17 +122,15 @@ fn parse_line(filename: path::Display, line_result: io::Result<String>) -> Optio
                 for entry in entries {
                     match entry {
                         Ok(path) => {
-                            if let Some(path_str) = path.to_str() {
-                                count += 1;
-                                if count > MAX_GLOB_EXPANSION {
-                                    println!(
-                                        "safe-rm: Glob \"{}\" found in {} expands to more than {} paths. Ignoring the rest.",
-                                        line, filename, MAX_GLOB_EXPANSION
-                                    );
-                                    return Some(paths);
-                                }
-                                paths.push(path_str.to_string());
+                            count += 1;
+                            if count > MAX_GLOB_EXPANSION {
+                                println!(
+                                    "safe-rm: Glob \"{}\" found in {} expands to more than {} paths. Ignoring the rest.",
+                                    line, filename, MAX_GLOB_EXPANSION
+                                );
+                                return Some(paths);
                             }
+                            paths.push(path);
                         }
                         Err(_) => println!(
                             "safe-rm: Ignored unreadable path while expanding glob \"{}\" from {}.",
@@ -178,11 +176,11 @@ fn test_parse_line() {
     // Valid lines
     assert_eq!(
         parse_line(filename.display(), Ok("/".to_string())).unwrap(),
-        vec!["/".to_string()]
+        vec![PathBuf::from("/")]
     );
     assert_eq!(
         parse_line(filename.display(), Ok("/tmp/".to_string())).unwrap(),
-        vec!["/tmp".to_string()]
+        vec![PathBuf::from("/tmp")]
     );
     assert_eq!(
         parse_line(filename.display(), Ok("/**".to_string()))
@@ -192,7 +190,7 @@ fn test_parse_line() {
     );
 }
 
-fn symlink_canonicalize(path: &Path) -> Option<String> {
+fn symlink_canonicalize(path: &Path) -> Option<PathBuf> {
     // Relative paths need to be prefixed by "./" to have a parent dir.
     let mut explicit_path = path.to_path_buf();
     if explicit_path.is_relative() {
@@ -204,26 +202,20 @@ fn symlink_canonicalize(path: &Path) -> Option<String> {
     // 1. splitting directory and base file name
     // 2. canonicalizing the directory
     // 3. recombining directory and file name
-    let parent: Option<path::PathBuf> = match explicit_path.parent() {
+    let parent: Option<PathBuf> = match explicit_path.parent() {
         Some(dir) => match dir.canonicalize() {
             Ok(normalized_parent) => Some(normalized_parent),
             Err(_) => None,
         },
-        None => Some(Path::new("/").to_path_buf()),
+        None => Some(PathBuf::from("/")),
     };
     return match parent {
         Some(dir) => match path.file_name() {
-            Some(file_name) => match dir.join(file_name).to_str() {
-                Some(pathname_str) => Some(pathname_str.to_string()),
-                None => None,
-            },
+            Some(file_name) => Some(dir.join(file_name)),
             None => match dir.parent() {
                 // file_name == ".."
-                Some(parent_dir) => match parent_dir.to_str() {
-                    Some(parent_str) => Some(parent_str.to_string()),
-                    None => None,
-                },
-                None => Some("/".to_string()), // Stop at the root.
+                Some(parent_dir) => Some(parent_dir.to_path_buf()),
+                None => Some(PathBuf::from("/")), // Stop at the root.
             },
         },
         None => None,
@@ -234,40 +226,45 @@ fn symlink_canonicalize(path: &Path) -> Option<String> {
 fn test_symlink_canonicalize() {
     assert_eq!(
         symlink_canonicalize(Path::new("/usr/bin")),
-        Some("/usr/bin".to_string())
+        Some(PathBuf::from("/usr/bin"))
     );
     assert_eq!(
         symlink_canonicalize(Path::new("/usr/bin/../bin/sh")),
-        Some("/usr/bin/sh".to_string())
+        Some(PathBuf::from("/usr/bin/sh"))
     );
     assert_eq!(
         symlink_canonicalize(Path::new("/usr/")),
-        Some("/usr".to_string())
+        Some(PathBuf::from("/usr"))
     );
     assert_eq!(
         symlink_canonicalize(Path::new("/usr/.")),
-        Some("/usr".to_string())
+        Some(PathBuf::from("/usr"))
     );
     assert_eq!(
         symlink_canonicalize(Path::new("/usr/bin/./.././local")),
-        Some("/usr/local".to_string())
+        Some(PathBuf::from("/usr/local"))
     );
     assert_eq!(
         symlink_canonicalize(Path::new("/usr/..")),
-        Some("/".to_string())
+        Some(PathBuf::from("/"))
     );
-    assert_eq!(symlink_canonicalize(Path::new("/")), Some("/".to_string()));
+    assert_eq!(
+        symlink_canonicalize(Path::new("/")),
+        Some(PathBuf::from("/"))
+    );
     assert_eq!(
         symlink_canonicalize(Path::new("/..")),
-        Some("/".to_string())
+        Some(PathBuf::from("/"))
     );
     assert_eq!(
         symlink_canonicalize(Path::new("/usr/bin")),
-        Some("/usr/bin".to_string())
+        Some(PathBuf::from("/usr/bin"))
     );
 
     // Relative path
-    assert!(symlink_canonicalize(Path::new("Cargo.toml")).unwrap().len() > 10);
+    assert!(symlink_canonicalize(Path::new("Cargo.toml"))
+        .unwrap()
+        .is_absolute());
 
     // Non-existent path
     assert_eq!(
@@ -276,15 +273,18 @@ fn test_symlink_canonicalize() {
     );
 }
 
-fn normalize_path(pathname: &str) -> String {
-    let path = Path::new(pathname);
+fn normalize_path(arg: &str) -> String {
+    let path = Path::new(arg);
 
     // Handle symlinks.
     if let Ok(metadata) = path.symlink_metadata() {
         if metadata.file_type().is_symlink() {
             return match symlink_canonicalize(&path) {
-                Some(normalized_path) => normalized_path,
-                None => pathname.to_string(),
+                Some(normalized_path) => match normalized_path.to_str() {
+                    Some(normalized_path_str) => normalized_path_str.to_string(),
+                    None => arg.to_string(),
+                },
+                None => arg.to_string(),
             };
         }
     }
@@ -293,9 +293,9 @@ fn normalize_path(pathname: &str) -> String {
     match path.canonicalize() {
         Ok(normalized_pathname) => match normalized_pathname.to_str() {
             Some(normalized_pathname_str) => normalized_pathname_str.to_string(),
-            None => pathname.to_string(),
+            None => arg.to_string(),
         },
-        Err(_) => pathname.to_string(),
+        Err(_) => arg.to_string(),
     }
 }
 
@@ -311,59 +311,64 @@ fn test_normalize_path() {
     assert_eq!(normalize_path("/tmp/�/"), "/tmp/�/");
 }
 
-fn filter_pathnames(args: impl Iterator<Item = String>, protected_paths: &[String]) -> Vec<String> {
+fn filter_arguments(
+    args: impl Iterator<Item = String>,
+    protected_paths: &[PathBuf],
+) -> Vec<String> {
     let mut filtered_args = Vec::new();
-    for pathname in args {
-        let normalized_pathname = normalize_path(&pathname);
-        if protected_paths.contains(&normalized_pathname) {
-            println!("safe-rm: Skipping {}.", pathname);
+    for arg in args {
+        if protected_paths.contains(&PathBuf::from(normalize_path(&arg))) {
+            println!("safe-rm: Skipping {}.", arg);
         } else {
-            filtered_args.push(pathname);
+            filtered_args.push(arg);
         }
     }
     filtered_args
 }
 
 #[test]
-fn test_filter_pathnames() {
+fn test_filter_arguments() {
     // Simple cases
     assert_eq!(
-        filter_pathnames(
+        filter_arguments(
             vec!["/safe".to_string()].into_iter(),
-            &vec!["/safe".to_string()]
+            &vec![PathBuf::from("/safe")]
         ),
         Vec::<String>::new()
     );
     assert_eq!(
-        filter_pathnames(
+        filter_arguments(
             vec!["/safe".to_string(), "/unsafe".to_string()].into_iter(),
-            &vec!["/safe".to_string()]
+            &vec![PathBuf::from("/safe")]
         ),
         vec!["/unsafe".to_string()]
     );
 
     // Degenerate cases
     assert_eq!(
-        filter_pathnames(Vec::<String>::new().into_iter(), &Vec::<String>::new()),
+        filter_arguments(Vec::<String>::new().into_iter(), &Vec::<PathBuf>::new()),
         Vec::<String>::new()
     );
     assert_eq!(
-        filter_pathnames(
+        filter_arguments(
             vec!["/safe".to_string(), "/unsafe".to_string()].into_iter(),
-            &Vec::<String>::new()
+            &Vec::<PathBuf>::new()
         ),
         vec!["/safe".to_string(), "/unsafe".to_string()]
     );
     assert_eq!(
-        filter_pathnames(Vec::<String>::new().into_iter(), &vec!["/safe".to_string()]),
+        filter_arguments(
+            Vec::<String>::new().into_iter(),
+            &vec![PathBuf::from("/safe")]
+        ),
         Vec::<String>::new()
     );
 
     // Relative path
     assert_eq!(
-        filter_pathnames(
+        filter_arguments(
             vec!["/../".to_string(), "/unsafe".to_string()].into_iter(),
-            &vec!["/".to_string()]
+            &vec![PathBuf::from("/")]
         ),
         vec!["/unsafe".to_string()]
     );
@@ -400,7 +405,7 @@ fn test_filter_pathnames() {
         fs::symlink("/usr", &symlink_to_protected_file).unwrap();
 
         assert_eq!(
-            filter_pathnames(
+            filter_arguments(
                 vec![
                     empty_file.clone(),
                     unprotected_symlink.clone(),
@@ -408,17 +413,17 @@ fn test_filter_pathnames() {
                     symlink_to_protected_file.clone()
                 ]
                 .into_iter(),
-                &vec!["/usr".to_string(), protected_symlink.clone()]
+                &vec![PathBuf::from("/usr"), PathBuf::from(&protected_symlink)]
             ),
             vec![empty_file, unprotected_symlink, symlink_to_protected_file]
         );
     }
 }
 
-fn finalize_protected_paths(protected_paths: &mut Vec<String>) {
+fn finalize_protected_paths(protected_paths: &mut Vec<PathBuf>) {
     if protected_paths.is_empty() {
         for path in DEFAULT_PATHS {
-            protected_paths.push(path.to_string());
+            protected_paths.push(PathBuf::from(path));
         }
     }
     protected_paths.sort();
@@ -430,21 +435,21 @@ fn test_finalize_protected_paths() {
     {
         let mut paths = vec![];
         finalize_protected_paths(&mut paths);
-        assert_eq!(paths, DEFAULT_PATHS);
+        assert_eq!(paths.len(), DEFAULT_PATHS.len());
     }
     {
-        let mut paths = vec!["/two".to_string(), "/one".to_string()];
+        let mut paths = vec![PathBuf::from("/two"), PathBuf::from("/one")];
         finalize_protected_paths(&mut paths);
-        assert_eq!(paths, vec!["/one".to_string(), "/two".to_string()]);
+        assert_eq!(paths, vec![PathBuf::from("/one"), PathBuf::from("/two")]);
     }
     {
-        let mut paths = vec!["/one".to_string(), "/one".to_string()];
+        let mut paths = vec![PathBuf::from("/one"), PathBuf::from("/one")];
         finalize_protected_paths(&mut paths);
-        assert_eq!(paths, vec!["/one".to_string()]);
+        assert_eq!(paths, vec![PathBuf::from("/one")]);
     }
 }
 
-fn read_config_files() -> Vec<String> {
+fn read_config_files() -> Vec<PathBuf> {
     let mut protected_paths = Vec::new();
     if let Ok(paths) = read_config(GLOBAL_CONFIG) {
         protected_paths.extend(paths.into_iter());
@@ -468,7 +473,7 @@ fn run(args: impl Iterator<Item = String>) -> i32 {
     let mut protected_paths = read_config_files();
     finalize_protected_paths(&mut protected_paths);
 
-    let filtered_args = filter_pathnames(args, &protected_paths);
+    let filtered_args = filter_arguments(args, &protected_paths);
 
     // Run the real rm command, returning with the same error code.
     match process::Command::new(REAL_RM).args(&filtered_args).status() {
