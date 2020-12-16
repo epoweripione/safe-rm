@@ -94,8 +94,7 @@ fn test_read_config() {
         use std::os::unix::fs::PermissionsExt;
 
         let file_path = dir.path().join("oneline");
-        let mut file = File::create(&file_path).unwrap();
-        writeln!(file, "/home").unwrap();
+        writeln!(File::create(&file_path).unwrap(), "/home").unwrap();
         let paths = read_config(&file_path).unwrap();
         assert_eq!(paths.len(), 1);
         assert_eq!(paths, vec![PathBuf::from("/home")]);
@@ -420,7 +419,23 @@ fn test_filter_arguments() {
     }
 }
 
-fn finalize_protected_paths(protected_paths: &mut Vec<PathBuf>) {
+fn read_config_files(globals: &[&str], locals: &[&str]) -> Vec<PathBuf> {
+    let mut protected_paths = Vec::new();
+
+    for config_file in globals {
+        if let Ok(paths) = read_config(config_file) {
+            protected_paths.extend(paths.into_iter());
+        }
+    }
+    if let Ok(value) = std::env::var("HOME") {
+        let home_dir = Path::new(&value);
+        for config_file in locals {
+            if let Ok(paths) = read_config(&home_dir.join(Path::new(config_file))) {
+                protected_paths.extend(paths.into_iter());
+            }
+        }
+    }
+
     if protected_paths.is_empty() {
         for path in DEFAULT_PATHS {
             protected_paths.push(PathBuf::from(path));
@@ -428,50 +443,48 @@ fn finalize_protected_paths(protected_paths: &mut Vec<PathBuf>) {
     }
     protected_paths.sort();
     protected_paths.dedup();
-}
 
-#[test]
-fn test_finalize_protected_paths() {
-    {
-        let mut paths = vec![];
-        finalize_protected_paths(&mut paths);
-        assert_eq!(paths.len(), DEFAULT_PATHS.len());
-    }
-    {
-        let mut paths = vec![PathBuf::from("/two"), PathBuf::from("/one")];
-        finalize_protected_paths(&mut paths);
-        assert_eq!(paths, vec![PathBuf::from("/one"), PathBuf::from("/two")]);
-    }
-    {
-        let mut paths = vec![PathBuf::from("/one"), PathBuf::from("/one")];
-        finalize_protected_paths(&mut paths);
-        assert_eq!(paths, vec![PathBuf::from("/one")]);
-    }
-}
-
-fn read_config_files() -> Vec<PathBuf> {
-    let mut protected_paths = Vec::new();
-    if let Ok(paths) = read_config(GLOBAL_CONFIG) {
-        protected_paths.extend(paths.into_iter());
-    }
-    if let Ok(paths) = read_config(LOCAL_GLOBAL_CONFIG) {
-        protected_paths.extend(paths.into_iter());
-    }
-    if let Ok(value) = std::env::var("HOME") {
-        let home_dir = Path::new(&value);
-        if let Ok(paths) = read_config(&home_dir.join(Path::new(USER_CONFIG))) {
-            protected_paths.extend(paths.into_iter());
-        }
-        if let Ok(paths) = read_config(&home_dir.join(Path::new(LEGACY_USER_CONFIG))) {
-            protected_paths.extend(paths.into_iter());
-        }
-    }
     protected_paths
 }
 
+#[test]
+fn test_read_config_files() {
+    use std::io::Write;
+    use tempfile::tempdir;
+
+    let dir = tempdir().unwrap();
+    let file_path1 = dir.path().join("home");
+    writeln!(File::create(&file_path1).unwrap(), "/home").unwrap();
+    let file_path2 = dir.path().join("tmp");
+    writeln!(File::create(&file_path2).unwrap(), "/tmp").unwrap();
+
+    // Empty config
+    assert_eq!(read_config_files(&[], &[]).len(), DEFAULT_PATHS.len());
+
+    // Sorted
+    assert_eq!(
+        read_config_files(
+            &[file_path2.to_str().unwrap(), file_path1.to_str().unwrap()],
+            &[]
+        ),
+        vec![PathBuf::from("/home"), PathBuf::from("/tmp")]
+    );
+
+    // Duplicate lines
+    assert_eq!(
+        read_config_files(
+            &[file_path1.to_str().unwrap(), file_path1.to_str().unwrap()],
+            &[]
+        ),
+        vec![PathBuf::from("/home")]
+    );
+}
+
 fn run(args: impl Iterator<Item = String>) -> i32 {
-    let mut protected_paths = read_config_files();
-    finalize_protected_paths(&mut protected_paths);
+    let protected_paths = read_config_files(
+        &[GLOBAL_CONFIG, LOCAL_GLOBAL_CONFIG],
+        &[USER_CONFIG, LEGACY_USER_CONFIG],
+    );
 
     let filtered_args = filter_arguments(args, &protected_paths);
 
