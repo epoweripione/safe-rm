@@ -21,5 +21,5 @@ clean:
 	-rm -rf $(TARBALL) $(TARBALL).asc $(BUILDDIR) target
 
 test:
-	cargo check
+	cargo check --all-targets
 	cargo test
