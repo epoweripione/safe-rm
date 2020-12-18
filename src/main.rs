@@ -60,29 +60,26 @@ const DEFAULT_PATHS: &[&str] = &[
 
 const MAX_GLOB_EXPANSION: usize = 256;
 
-fn read_config<P: AsRef<Path>>(filename: P) -> io::Result<Vec<PathBuf>> {
+fn read_config<P: AsRef<Path>>(filename: P) -> Option<Vec<PathBuf>> {
     let mut paths = Vec::new();
     if !filename.as_ref().exists() {
-        return Ok(paths);
+        return Some(paths);
     }
-    match File::open(&filename) {
-        Ok(f) => {
-            let reader = io::BufReader::new(f);
-            for line_result in reader.lines() {
-                if let Some(line_paths) = parse_line(filename.as_ref().display(), line_result) {
-                    paths.extend(line_paths.into_iter());
-                }
-            }
-            Ok(paths)
-        }
-        Err(e) => {
-            println!(
-                "safe-rm: Could not open configuration file: {}",
-                filename.as_ref().display()
-            );
-            Err(e)
+    let f = File::open(&filename).ok().or_else(|| {
+        println!(
+            "safe-rm: Could not open configuration file: {}",
+            filename.as_ref().display()
+        );
+        None
+    })?;
+
+    let reader = io::BufReader::new(f);
+    for line_result in reader.lines() {
+        if let Some(line_paths) = parse_line(filename.as_ref().display(), line_result) {
+            paths.extend(line_paths.into_iter());
         }
     }
+    Some(paths)
 }
 
 #[test]
@@ -104,7 +101,7 @@ fn test_read_config() {
         let mut perms = fs::metadata(&file_path).unwrap().permissions();
         perms.set_mode(0o200); // not readable by anyone
         fs::set_permissions(&file_path, perms).unwrap();
-        assert!(read_config(&file_path).is_err());
+        assert!(read_config(&file_path).is_none());
 
         // Missing file
         let paths = read_config(dir.path().join("missing")).unwrap();
@@ -118,45 +115,42 @@ fn test_read_config() {
 }
 
 fn parse_line(filename: path::Display, line_result: io::Result<String>) -> Option<Vec<PathBuf>> {
+    let line = line_result.ok().or_else(|| {
+        println!("safe-rm: Ignoring unreadable line in {}.", filename);
+        None
+    })?;
+    let entries = glob(&line).ok().or_else(|| {
+        println!(
+            "safe-rm: Invalid glob pattern \"{}\" found in {} and ignored.",
+            line, filename
+        );
+        None
+    })?;
+
     let mut paths = Vec::new();
-    match line_result {
-        Ok(line) => match glob(&line) {
-            Ok(entries) => {
-                let mut count = 0;
-                for entry in entries {
-                    match entry {
-                        Ok(path) => {
-                            count += 1;
-                            if count > MAX_GLOB_EXPANSION {
-                                println!(
-                                    "safe-rm: Glob \"{}\" found in {} expands to more than {} paths. Ignoring the rest.",
-                                    line, filename, MAX_GLOB_EXPANSION
-                                );
-                                return Some(paths);
-                            }
-                            paths.push(path);
-                        }
-                        Err(_) => println!(
-                            "safe-rm: Ignored unreadable path while expanding glob \"{}\" from {}.",
-                            line, filename
-                        ),
-                    }
+
+    let mut count = 0;
+    for entry in entries {
+        match entry {
+            Ok(path) => {
+                count += 1;
+                if count > MAX_GLOB_EXPANSION {
+                    println!(
+                        "safe-rm: Glob \"{}\" found in {} expands to more than {} paths. Ignoring the rest.",
+                        line, filename, MAX_GLOB_EXPANSION
+                    );
+                    return Some(paths);
                 }
-                Some(paths)
+                paths.push(path);
             }
-            Err(_) => {
-                println!(
-                    "safe-rm: Invalid glob pattern \"{}\" found in {} and ignored.",
-                    line, filename
-                );
-                None
-            }
-        },
-        Err(_) => {
-            println!("safe-rm: Invalid line found in {} and ignored.", filename);
-            None
+            Err(_) => println!(
+                "safe-rm: Ignored unreadable path while expanding glob \"{}\" from {}.",
+                line, filename
+            ),
         }
     }
+
+    Some(paths)
 }
 
 #[test]
@@ -422,14 +416,14 @@ fn read_config_files(globals: &[&str], locals: &[&str]) -> Vec<PathBuf> {
     let mut protected_paths = Vec::new();
 
     for config_file in globals {
-        if let Ok(paths) = read_config(config_file) {
+        if let Some(paths) = read_config(config_file) {
             protected_paths.extend(paths.into_iter());
         }
     }
     if let Ok(value) = std::env::var("HOME") {
         let home_dir = Path::new(&value);
         for config_file in locals {
-            if let Ok(paths) = read_config(&home_dir.join(Path::new(config_file))) {
+            if let Some(paths) = read_config(&home_dir.join(Path::new(config_file))) {
                 protected_paths.extend(paths.into_iter());
             }
         }
