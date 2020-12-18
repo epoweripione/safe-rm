@@ -600,6 +600,11 @@ fn ensure_real_rm_is_callable() -> io::Result<()> {
     Ok(())
 }
 
+#[test]
+fn test_ensure_real_rm_is_callable() {
+    assert!(ensure_real_rm_is_callable().is_ok());
+}
+
 fn main() {
     if let Err(e) = ensure_real_rm_is_callable() {
         println!(
