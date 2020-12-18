@@ -16,6 +16,7 @@
 #![forbid(unsafe_code)]
 
 use glob::glob;
+use std::ffi::OsString;
 use std::fs::{self, File};
 use std::io::{self, BufRead};
 use std::path::{self, Path, PathBuf};
@@ -276,29 +277,23 @@ fn test_symlink_canonicalize() {
     );
 }
 
-fn normalize_path(arg: &str) -> String {
+fn normalize_path(arg: &str) -> OsString {
     let path = Path::new(arg);
 
     // Handle symlinks.
     if let Ok(metadata) = path.symlink_metadata() {
         if metadata.file_type().is_symlink() {
             return match symlink_canonicalize(&path) {
-                Some(normalized_path) => match normalized_path.to_str() {
-                    Some(normalized_path_str) => normalized_path_str.to_string(),
-                    None => arg.to_string(),
-                },
-                None => arg.to_string(),
+                Some(normalized_path) => normalized_path.into_os_string(),
+                None => OsString::from(arg),
             };
         }
     }
 
     // Handle normal files.
     match path.canonicalize() {
-        Ok(normalized_pathname) => match normalized_pathname.to_str() {
-            Some(normalized_pathname_str) => normalized_pathname_str.to_string(),
-            None => arg.to_string(),
-        },
-        Err(_) => arg.to_string(),
+        Ok(normalized_pathname) => normalized_pathname.into_os_string(),
+        Err(_) => OsString::from(arg),
     }
 }
 
