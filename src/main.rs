@@ -498,10 +498,7 @@ fn run(
         .args(&filtered_args)
         .status()
     {
-        Ok(status) => match status.code() {
-            Some(code) => code,
-            None => 1,
-        },
+        Ok(status) => status.code().unwrap_or(1),
         Err(_) => {
             println!("safe-rm: Failed to run the {} command.", REAL_RM);
             1
