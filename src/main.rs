@@ -484,12 +484,13 @@ fn test_read_config_files() {
     );
 }
 
-fn run(rm_binary: &str, args: impl Iterator<Item = String>) -> i32 {
-    let protected_paths = read_config_files(
-        &[GLOBAL_CONFIG, LOCAL_GLOBAL_CONFIG],
-        &[USER_CONFIG, LEGACY_USER_CONFIG],
-    );
-
+fn run(
+    rm_binary: &str,
+    args: impl Iterator<Item = String>,
+    globals: &[&str],
+    locals: &[&str],
+) -> i32 {
+    let protected_paths = read_config_files(globals, locals);
     let filtered_args = filter_arguments(args, &protected_paths);
 
     // Run the real rm command, returning with the same error code.
@@ -510,18 +511,25 @@ fn run(rm_binary: &str, args: impl Iterator<Item = String>) -> i32 {
 
 #[test]
 fn test_run() {
+    use std::io::Write;
     use tempfile::tempdir;
 
     let dir = tempdir().unwrap();
     let empty_file = dir.path().join("empty").to_str().unwrap().to_string();
     File::create(&empty_file).unwrap();
     let missing_file = dir.path().join("missing").to_str().unwrap().to_string();
+    let file1 = dir.path().join("file1").to_str().unwrap().to_string();
+    let file2 = dir.path().join("file2").to_str().unwrap().to_string();
+    File::create(&file1).unwrap();
+    File::create(&file2).unwrap();
 
     // Trying to delete a directory without "-r" should fail.
     assert_eq!(
         run(
             REAL_RM,
-            vec![dir.path().to_str().unwrap().to_string()].into_iter()
+            vec![dir.path().to_str().unwrap().to_string()].into_iter(),
+            &[],
+            &[]
         ),
         1
     );
@@ -531,7 +539,9 @@ fn test_run() {
     assert_eq!(
         run(
             REAL_RM,
-            vec![empty_file.clone(), "/usr".to_string()].into_iter()
+            vec![empty_file.clone(), "/usr".to_string()].into_iter(),
+            &[],
+            &[]
         ),
         0
     );
@@ -540,14 +550,45 @@ fn test_run() {
     // When the real rm can't be found, run() fails.
     File::create(&empty_file).unwrap();
     assert_eq!(Path::new(&empty_file).exists(), true);
-    assert_eq!(run(&missing_file, vec![empty_file.clone()].into_iter()), 1);
+    assert_eq!(
+        run(
+            &missing_file,
+            vec![empty_file.clone()].into_iter(),
+            &[],
+            &[]
+        ),
+        1
+    );
     assert_eq!(Path::new(&empty_file).exists(), true);
 
     // Trying to delete a missing file should fail.
-    assert_eq!(run(REAL_RM, vec![missing_file].into_iter()), 1);
+    assert_eq!(run(REAL_RM, vec![missing_file].into_iter(), &[], &[]), 1);
 
     // The "--help" option should work.
-    assert_eq!(run(REAL_RM, vec!["--help".to_string()].into_iter()), 0);
+    assert_eq!(
+        run(REAL_RM, vec!["--help".to_string()].into_iter(), &[], &[]),
+        0
+    );
+
+    // The contents of a directory can be protected using a wildcard.
+    let config_file = dir.path().join("config").to_str().unwrap().to_string();
+    writeln!(
+        File::create(&config_file).unwrap(),
+        "{}",
+        dir.path().join("*").to_str().unwrap()
+    )
+    .unwrap();
+    assert_eq!(
+        run(
+            REAL_RM,
+            vec![file1.clone(), file2.clone()].into_iter(),
+            &[&config_file],
+            &[]
+        ),
+        1
+    );
+    assert_eq!(Path::new(&file1).exists(), true);
+    assert_eq!(Path::new(&file2).exists(), true);
 }
 
 fn ensure_real_rm_is_callable() -> io::Result<()> {
@@ -566,5 +607,10 @@ fn main() {
             e
         );
     }
-    process::exit(run(REAL_RM, std::env::args().skip(1)));
+    process::exit(run(
+        REAL_RM,
+        std::env::args().skip(1),
+        &[GLOBAL_CONFIG, LOCAL_GLOBAL_CONFIG],
+        &[USER_CONFIG, LEGACY_USER_CONFIG],
+    ));
 }
