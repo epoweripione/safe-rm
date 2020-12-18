@@ -484,7 +484,7 @@ fn test_read_config_files() {
     );
 }
 
-fn run(args: impl Iterator<Item = String>) -> i32 {
+fn run(rm_binary: &str, args: impl Iterator<Item = String>) -> i32 {
     let protected_paths = read_config_files(
         &[GLOBAL_CONFIG, LOCAL_GLOBAL_CONFIG],
         &[USER_CONFIG, LEGACY_USER_CONFIG],
@@ -493,7 +493,10 @@ fn run(args: impl Iterator<Item = String>) -> i32 {
     let filtered_args = filter_arguments(args, &protected_paths);
 
     // Run the real rm command, returning with the same error code.
-    match process::Command::new(REAL_RM).args(&filtered_args).status() {
+    match process::Command::new(rm_binary)
+        .args(&filtered_args)
+        .status()
+    {
         Ok(status) => match status.code() {
             Some(code) => code,
             None => 1,
@@ -516,23 +519,35 @@ fn test_run() {
 
     // Trying to delete a directory without "-r" should fail.
     assert_eq!(
-        run(vec![dir.path().to_str().unwrap().to_string()].into_iter()),
+        run(
+            REAL_RM,
+            vec![dir.path().to_str().unwrap().to_string()].into_iter()
+        ),
         1
     );
 
     // One file to delete, one directory to ignore.
     assert_eq!(Path::new(&empty_file).exists(), true);
     assert_eq!(
-        run(vec![empty_file.clone(), "/usr".to_string()].into_iter()),
+        run(
+            REAL_RM,
+            vec![empty_file.clone(), "/usr".to_string()].into_iter()
+        ),
         0
     );
     assert_eq!(Path::new(&empty_file).exists(), false);
 
+    // When the real rm can't be found, run() fails.
+    File::create(&empty_file).unwrap();
+    assert_eq!(Path::new(&empty_file).exists(), true);
+    assert_eq!(run(&missing_file, vec![empty_file.clone()].into_iter()), 1);
+    assert_eq!(Path::new(&empty_file).exists(), true);
+
     // Trying to delete a missing file should fail.
-    assert_eq!(run(vec![missing_file].into_iter()), 1);
+    assert_eq!(run(REAL_RM, vec![missing_file].into_iter()), 1);
 
     // The "--help" option should work.
-    assert_eq!(run(vec!["--help".to_string()].into_iter()), 0);
+    assert_eq!(run(REAL_RM, vec!["--help".to_string()].into_iter()), 0);
 }
 
 fn ensure_real_rm_is_callable() -> io::Result<()> {
@@ -551,5 +566,5 @@ fn main() {
             e
         );
     }
-    process::exit(run(std::env::args().skip(1)));
+    process::exit(run(REAL_RM, std::env::args().skip(1)));
 }
