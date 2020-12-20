@@ -63,6 +63,8 @@ const MAX_GLOB_EXPANSION: usize = 256;
 fn read_config<P: AsRef<Path>>(filename: P) -> Option<Vec<PathBuf>> {
     let mut paths = Vec::new();
     if !filename.as_ref().exists() {
+        // Not all config files are expected to be present.
+        // If they're missing, we silently skip them.
         return Some(paths);
     }
     let f = File::open(&filename).ok().or_else(|| {
