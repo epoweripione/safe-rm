@@ -107,12 +107,12 @@ fn test_read_config() {
 
         // Missing file
         let paths = read_config(dir.path().join("missing")).unwrap();
-        assert_eq!(paths.len(), 0);
+        assert!(paths.is_empty());
     }
     {
         let file_path = dir.path().join("empty");
         File::create(&file_path).unwrap();
-        assert_eq!(read_config(&file_path).unwrap().len(), 0);
+        assert!(read_config(&file_path).unwrap().is_empty());
     }
 }
 
@@ -158,12 +158,9 @@ fn test_parse_line() {
     let filename = Path::new("/");
 
     // Invalid lines
-    assert_eq!(
-        parse_line(filename.display(), Ok("/�".to_string()))
-            .unwrap()
-            .len(),
-        0
-    );
+    assert!(parse_line(filename.display(), Ok("/�".to_string()))
+        .unwrap()
+        .is_empty());
     assert!(parse_line(
         filename.display(),
         Err(io::Error::new(io::ErrorKind::Other, ""))
