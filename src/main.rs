@@ -129,12 +129,10 @@ fn parse_line(filename: path::Display, line_result: io::Result<String>) -> Optio
 
     let mut paths = Vec::new();
 
-    let mut count = 0;
     for entry in entries {
         match entry {
             Ok(path) => {
-                count += 1;
-                if count > MAX_GLOB_EXPANSION {
+                if paths.len() >= MAX_GLOB_EXPANSION {
                     println!(
                         "safe-rm: Glob \"{}\" found in {} expands to more than {} paths. Ignoring the rest.",
                         line, filename, MAX_GLOB_EXPANSION
