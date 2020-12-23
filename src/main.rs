@@ -16,7 +16,7 @@
 #![forbid(unsafe_code)]
 
 use glob::glob;
-use std::ffi::OsString;
+use std::ffi::{OsStr, OsString};
 use std::fs::{self, File};
 use std::io::{self, BufRead};
 use std::path::{self, Path, PathBuf};
@@ -268,7 +268,7 @@ fn test_symlink_canonicalize() {
     );
 }
 
-fn normalize_path(arg: &str) -> OsString {
+fn normalize_path(arg: &OsStr) -> OsString {
     let path = Path::new(arg);
 
     // Handle symlinks.
@@ -290,24 +290,30 @@ fn normalize_path(arg: &str) -> OsString {
 
 #[test]
 fn test_normalize_path() {
-    assert_eq!(normalize_path("/"), "/");
-    assert_eq!(normalize_path("/../."), "/");
-    assert_eq!(normalize_path("/usr"), "/usr");
-    assert_eq!(normalize_path("/usr/"), "/usr");
-    assert_eq!(normalize_path("/home/../usr"), "/usr");
-    assert_eq!(normalize_path(""), "");
-    assert_eq!(normalize_path("foo"), "foo");
-    assert_eq!(normalize_path("/tmp/�/"), "/tmp/�/");
+    assert_eq!(normalize_path(&OsString::from("/".to_string())), "/");
+    assert_eq!(normalize_path(&OsString::from("/../.".to_string())), "/");
+    assert_eq!(normalize_path(&OsString::from("/usr".to_string())), "/usr");
+    assert_eq!(normalize_path(&OsString::from("/usr/".to_string())), "/usr");
+    assert_eq!(
+        normalize_path(&OsString::from("/home/../usr".to_string())),
+        "/usr"
+    );
+    assert_eq!(normalize_path(&OsString::from("".to_string())), "");
+    assert_eq!(normalize_path(&OsString::from("foo".to_string())), "foo");
+    assert_eq!(
+        normalize_path(&OsString::from("/tmp/�/".to_string())),
+        "/tmp/�/"
+    );
 }
 
 fn filter_arguments(
-    args: impl Iterator<Item = String>,
+    args: impl Iterator<Item = OsString>,
     protected_paths: &[PathBuf],
-) -> Vec<String> {
+) -> Vec<OsString> {
     let mut filtered_args = Vec::new();
     for arg in args {
         if protected_paths.contains(&PathBuf::from(normalize_path(&arg))) {
-            println!("safe-rm: Skipping {}.", arg);
+            println!("safe-rm: Skipping {}.", arg.to_string_lossy());
         } else {
             filtered_args.push(arg);
         }
@@ -320,46 +326,61 @@ fn test_filter_arguments() {
     // Simple cases
     assert_eq!(
         filter_arguments(
-            vec!["/safe".to_string()].into_iter(),
+            vec![OsString::from("/safe".to_string())].into_iter(),
             &vec![PathBuf::from("/safe")]
         ),
-        Vec::<String>::new()
+        Vec::<OsString>::new()
     );
     assert_eq!(
         filter_arguments(
-            vec!["/safe".to_string(), "/unsafe".to_string()].into_iter(),
+            vec![
+                OsString::from("/safe".to_string()),
+                OsString::from("/unsafe".to_string())
+            ]
+            .into_iter(),
             &vec![PathBuf::from("/safe")]
         ),
-        vec!["/unsafe".to_string()]
+        vec![OsString::from("/unsafe".to_string())]
     );
 
     // Degenerate cases
     assert_eq!(
-        filter_arguments(Vec::<String>::new().into_iter(), &Vec::<PathBuf>::new()),
-        Vec::<String>::new()
+        filter_arguments(Vec::<OsString>::new().into_iter(), &Vec::<PathBuf>::new()),
+        Vec::<OsString>::new()
     );
     assert_eq!(
         filter_arguments(
-            vec!["/safe".to_string(), "/unsafe".to_string()].into_iter(),
+            vec![
+                OsString::from("/safe".to_string()),
+                OsString::from("/unsafe".to_string())
+            ]
+            .into_iter(),
             &Vec::<PathBuf>::new()
         ),
-        vec!["/safe".to_string(), "/unsafe".to_string()]
+        vec![
+            OsString::from("/safe".to_string()),
+            OsString::from("/unsafe".to_string())
+        ]
     );
     assert_eq!(
         filter_arguments(
-            Vec::<String>::new().into_iter(),
+            Vec::<OsString>::new().into_iter(),
             &vec![PathBuf::from("/safe")]
         ),
-        Vec::<String>::new()
+        Vec::<OsString>::new()
     );
 
     // Relative path
     assert_eq!(
         filter_arguments(
-            vec!["/../".to_string(), "/unsafe".to_string()].into_iter(),
+            vec![
+                OsString::from("/../".to_string()),
+                OsString::from("/unsafe".to_string())
+            ]
+            .into_iter(),
             &vec![PathBuf::from("/")]
         ),
-        vec!["/unsafe".to_string()]
+        vec![OsString::from("/unsafe".to_string())]
     );
 
     // Symlink tests
@@ -368,38 +389,28 @@ fn test_filter_arguments() {
         use tempfile::tempdir;
 
         let dir = tempdir().unwrap();
-        let empty_file = dir.path().join("empty").to_str().unwrap().to_string();
+        let empty_file = dir.path().join("empty");
         File::create(&empty_file).unwrap();
 
         // Normal symlinks should not be protected.
-        let unprotected_symlink = dir
-            .path()
-            .join("unprotected_symlink")
-            .to_str()
-            .unwrap()
-            .to_string();
+        let unprotected_symlink = dir.path().join("unprotected_symlink");
         fs::symlink(&empty_file, &unprotected_symlink).unwrap();
 
         // A symlink explicitly listed in a config file should be protected.
-        let protected_symlink = dir
-            .path()
-            .join("protected_symlink")
-            .to_str()
-            .unwrap()
-            .to_string();
+        let protected_symlink = dir.path().join("protected_symlink");
         fs::symlink(&empty_file, &protected_symlink).unwrap();
 
         // A symlink to a protected file should not be protected itself.
-        let symlink_to_protected_file = dir.path().join("usr").to_str().unwrap().to_string();
+        let symlink_to_protected_file = dir.path().join("usr");
         fs::symlink("/usr", &symlink_to_protected_file).unwrap();
 
         assert_eq!(
             filter_arguments(
                 vec![
-                    empty_file.clone(),
-                    unprotected_symlink.clone(),
-                    protected_symlink.clone(),
-                    symlink_to_protected_file.clone()
+                    OsString::from(&empty_file),
+                    OsString::from(&unprotected_symlink),
+                    OsString::from(&protected_symlink),
+                    OsString::from(&symlink_to_protected_file),
                 ]
                 .into_iter(),
                 &vec![PathBuf::from("/usr"), PathBuf::from(&protected_symlink)]
@@ -472,7 +483,7 @@ fn test_read_config_files() {
 
 fn run(
     rm_binary: &str,
-    args: impl Iterator<Item = String>,
+    args: impl Iterator<Item = OsString>,
     globals: &[&str],
     locals: &[&str],
 ) -> i32 {
@@ -510,7 +521,7 @@ fn test_run() {
     assert_eq!(
         run(
             REAL_RM,
-            vec![dir.path().to_str().unwrap().to_string()].into_iter(),
+            vec![OsString::from(dir.path())].into_iter(),
             &[],
             &[]
         ),
@@ -522,7 +533,11 @@ fn test_run() {
     assert_eq!(
         run(
             REAL_RM,
-            vec![empty_file.clone(), "/usr".to_string()].into_iter(),
+            vec![
+                OsString::from(&empty_file),
+                OsString::from("/usr".to_string())
+            ]
+            .into_iter(),
             &[],
             &[]
         ),
@@ -536,7 +551,7 @@ fn test_run() {
     assert_eq!(
         run(
             &missing_file,
-            vec![empty_file.clone()].into_iter(),
+            vec![OsString::from(&empty_file)].into_iter(),
             &[],
             &[]
         ),
@@ -545,11 +560,24 @@ fn test_run() {
     assert_eq!(Path::new(&empty_file).exists(), true);
 
     // Trying to delete a missing file should fail.
-    assert_eq!(run(REAL_RM, vec![missing_file].into_iter(), &[], &[]), 1);
+    assert_eq!(
+        run(
+            REAL_RM,
+            vec![OsString::from(&missing_file)].into_iter(),
+            &[],
+            &[]
+        ),
+        1
+    );
 
     // The "--help" option should work.
     assert_eq!(
-        run(REAL_RM, vec!["--help".to_string()].into_iter(), &[], &[]),
+        run(
+            REAL_RM,
+            vec![OsString::from("--help".to_string())].into_iter(),
+            &[],
+            &[]
+        ),
         0
     );
 
@@ -564,7 +592,7 @@ fn test_run() {
     assert_eq!(
         run(
             REAL_RM,
-            vec![file1.clone(), file2.clone()].into_iter(),
+            vec![OsString::from(&file1), OsString::from(&file2)].into_iter(),
             &[&config_file],
             &[]
         ),
@@ -597,7 +625,7 @@ fn main() {
     }
     process::exit(run(
         REAL_RM,
-        std::env::args().skip(1),
+        std::env::args_os().skip(1),
         &[GLOBAL_CONFIG, LOCAL_GLOBAL_CONFIG],
         &[USER_CONFIG, LEGACY_USER_CONFIG],
     ));
