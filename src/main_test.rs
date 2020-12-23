@@ -17,41 +17,47 @@
 mod tests {
     use std::ffi::OsString;
     use std::fs::{self, File};
-    use std::io;
+    use std::io::{self, Write};
     use std::path::{Path, PathBuf};
+    use tempfile::tempdir;
 
     #[test]
     fn read_config() {
         use super::super::read_config;
 
-        use std::io::Write;
-        use tempfile::tempdir;
+        use std::os::unix::fs::PermissionsExt;
 
         let dir = tempdir().unwrap();
-        {
-            use std::os::unix::fs::PermissionsExt;
+        let file_path = dir.path().join("oneline");
+        writeln!(File::create(&file_path).unwrap(), "/home").unwrap();
+        let paths = read_config(&file_path).unwrap();
+        assert_eq!(paths.len(), 1);
+        assert_eq!(paths, vec![PathBuf::from("/home")]);
 
-            let file_path = dir.path().join("oneline");
-            writeln!(File::create(&file_path).unwrap(), "/home").unwrap();
-            let paths = read_config(&file_path).unwrap();
-            assert_eq!(paths.len(), 1);
-            assert_eq!(paths, vec![PathBuf::from("/home")]);
+        // Make the file unreadable and check for an error.
+        let mut perms = fs::metadata(&file_path).unwrap().permissions();
+        perms.set_mode(0o200); // not readable by anyone
+        fs::set_permissions(&file_path, perms).unwrap();
+        assert!(read_config(&file_path).is_none());
+    }
 
-            // Make the file unreadable and check for an error.
-            let mut perms = fs::metadata(&file_path).unwrap().permissions();
-            perms.set_mode(0o200); // not readable by anyone
-            fs::set_permissions(&file_path, perms).unwrap();
-            assert!(read_config(&file_path).is_none());
+    #[test]
+    fn read_config_missing_file() {
+        use super::super::read_config;
 
-            // Missing file
-            let paths = read_config(dir.path().join("missing")).unwrap();
-            assert!(paths.is_empty());
-        }
-        {
-            let file_path = dir.path().join("empty");
-            File::create(&file_path).unwrap();
-            assert!(read_config(&file_path).unwrap().is_empty());
-        }
+        let dir = tempdir().unwrap();
+        let paths = read_config(dir.path().join("missing")).unwrap();
+        assert!(paths.is_empty());
+    }
+
+    #[test]
+    fn read_config_empty_file() {
+        use super::super::read_config;
+
+        let dir = tempdir().unwrap();
+        let file_path = dir.path().join("empty");
+        File::create(&file_path).unwrap();
+        assert!(read_config(&file_path).unwrap().is_empty());
     }
 
     #[test]
@@ -225,42 +231,43 @@ mod tests {
             ),
             vec![OsString::from("/unsafe".to_string())]
         );
+    }
 
-        // Symlink tests
-        {
-            use std::os::unix::fs;
-            use tempfile::tempdir;
+    #[test]
+    fn filter_arguments_symlinks() {
+        use super::super::filter_arguments;
 
-            let dir = tempdir().unwrap();
-            let empty_file = dir.path().join("empty");
-            File::create(&empty_file).unwrap();
+        use std::os::unix::fs;
 
-            // Normal symlinks should not be protected.
-            let unprotected_symlink = dir.path().join("unprotected_symlink");
-            fs::symlink(&empty_file, &unprotected_symlink).unwrap();
+        let dir = tempdir().unwrap();
+        let empty_file = dir.path().join("empty");
+        File::create(&empty_file).unwrap();
 
-            // A symlink explicitly listed in a config file should be protected.
-            let protected_symlink = dir.path().join("protected_symlink");
-            fs::symlink(&empty_file, &protected_symlink).unwrap();
+        // Normal symlinks should not be protected.
+        let unprotected_symlink = dir.path().join("unprotected_symlink");
+        fs::symlink(&empty_file, &unprotected_symlink).unwrap();
 
-            // A symlink to a protected file should not be protected itself.
-            let symlink_to_protected_file = dir.path().join("usr");
-            fs::symlink("/usr", &symlink_to_protected_file).unwrap();
+        // A symlink explicitly listed in a config file should be protected.
+        let protected_symlink = dir.path().join("protected_symlink");
+        fs::symlink(&empty_file, &protected_symlink).unwrap();
 
-            assert_eq!(
-                filter_arguments(
-                    vec![
-                        OsString::from(&empty_file),
-                        OsString::from(&unprotected_symlink),
-                        OsString::from(&protected_symlink),
-                        OsString::from(&symlink_to_protected_file),
-                    ]
-                    .into_iter(),
-                    &vec![PathBuf::from("/usr"), PathBuf::from(&protected_symlink)]
-                ),
-                vec![empty_file, unprotected_symlink, symlink_to_protected_file]
-            );
-        }
+        // A symlink to a protected file should not be protected itself.
+        let symlink_to_protected_file = dir.path().join("usr");
+        fs::symlink("/usr", &symlink_to_protected_file).unwrap();
+
+        assert_eq!(
+            filter_arguments(
+                vec![
+                    OsString::from(&empty_file),
+                    OsString::from(&unprotected_symlink),
+                    OsString::from(&protected_symlink),
+                    OsString::from(&symlink_to_protected_file),
+                ]
+                .into_iter(),
+                &vec![PathBuf::from("/usr"), PathBuf::from(&protected_symlink)]
+            ),
+            vec![empty_file, unprotected_symlink, symlink_to_protected_file]
+        );
     }
 
     #[test]
