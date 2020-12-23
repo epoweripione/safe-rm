@@ -15,6 +15,8 @@
 
 #![forbid(unsafe_code)]
 
+mod main_test;
+
 use glob::glob;
 use std::ffi::{OsStr, OsString};
 use std::fs::{self, File};
@@ -84,38 +86,6 @@ fn read_config<P: AsRef<Path>>(filename: P) -> Option<Vec<PathBuf>> {
     Some(paths)
 }
 
-#[test]
-fn test_read_config() {
-    use std::io::Write;
-    use tempfile::tempdir;
-
-    let dir = tempdir().unwrap();
-    {
-        use std::os::unix::fs::PermissionsExt;
-
-        let file_path = dir.path().join("oneline");
-        writeln!(File::create(&file_path).unwrap(), "/home").unwrap();
-        let paths = read_config(&file_path).unwrap();
-        assert_eq!(paths.len(), 1);
-        assert_eq!(paths, vec![PathBuf::from("/home")]);
-
-        // Make the file unreadable and check for an error.
-        let mut perms = fs::metadata(&file_path).unwrap().permissions();
-        perms.set_mode(0o200); // not readable by anyone
-        fs::set_permissions(&file_path, perms).unwrap();
-        assert!(read_config(&file_path).is_none());
-
-        // Missing file
-        let paths = read_config(dir.path().join("missing")).unwrap();
-        assert!(paths.is_empty());
-    }
-    {
-        let file_path = dir.path().join("empty");
-        File::create(&file_path).unwrap();
-        assert!(read_config(&file_path).unwrap().is_empty());
-    }
-}
-
 fn parse_line(filename: path::Display, line_result: io::Result<String>) -> Option<Vec<PathBuf>> {
     let line = line_result.ok().or_else(|| {
         println!("safe-rm: Ignoring unreadable line in {}.", filename);
@@ -153,38 +123,6 @@ fn parse_line(filename: path::Display, line_result: io::Result<String>) -> Optio
     Some(paths)
 }
 
-#[test]
-fn test_parse_line() {
-    let filename = Path::new("/");
-
-    // Invalid lines
-    assert!(parse_line(filename.display(), Ok("/�".to_string()))
-        .unwrap()
-        .is_empty());
-    assert!(parse_line(
-        filename.display(),
-        Err(io::Error::new(io::ErrorKind::Other, ""))
-    )
-    .is_none());
-    assert!(parse_line(filename.display(), Ok("/usr/***/bin".to_string())).is_none());
-
-    // Valid lines
-    assert_eq!(
-        parse_line(filename.display(), Ok("/".to_string())).unwrap(),
-        vec![PathBuf::from("/")]
-    );
-    assert_eq!(
-        parse_line(filename.display(), Ok("/tmp/".to_string())).unwrap(),
-        vec![PathBuf::from("/tmp")]
-    );
-    assert_eq!(
-        parse_line(filename.display(), Ok("/**".to_string()))
-            .unwrap()
-            .len(),
-        MAX_GLOB_EXPANSION
-    );
-}
-
 fn symlink_canonicalize(path: &Path) -> Option<PathBuf> {
     // Relative paths need to be prefixed by "./" to have a parent dir.
     let mut explicit_path = path.to_path_buf();
@@ -217,57 +155,6 @@ fn symlink_canonicalize(path: &Path) -> Option<PathBuf> {
     };
 }
 
-#[test]
-fn test_symlink_canonicalize() {
-    assert_eq!(
-        symlink_canonicalize(Path::new("/usr/bin")),
-        Some(PathBuf::from("/usr/bin"))
-    );
-    assert_eq!(
-        symlink_canonicalize(Path::new("/usr/bin/../bin/sh")),
-        Some(PathBuf::from("/usr/bin/sh"))
-    );
-    assert_eq!(
-        symlink_canonicalize(Path::new("/usr/")),
-        Some(PathBuf::from("/usr"))
-    );
-    assert_eq!(
-        symlink_canonicalize(Path::new("/usr/.")),
-        Some(PathBuf::from("/usr"))
-    );
-    assert_eq!(
-        symlink_canonicalize(Path::new("/usr/bin/./.././local")),
-        Some(PathBuf::from("/usr/local"))
-    );
-    assert_eq!(
-        symlink_canonicalize(Path::new("/usr/..")),
-        Some(PathBuf::from("/"))
-    );
-    assert_eq!(
-        symlink_canonicalize(Path::new("/")),
-        Some(PathBuf::from("/"))
-    );
-    assert_eq!(
-        symlink_canonicalize(Path::new("/..")),
-        Some(PathBuf::from("/"))
-    );
-    assert_eq!(
-        symlink_canonicalize(Path::new("/usr/bin")),
-        Some(PathBuf::from("/usr/bin"))
-    );
-
-    // Relative path
-    assert!(symlink_canonicalize(Path::new("Cargo.toml"))
-        .unwrap()
-        .is_absolute());
-
-    // Non-existent path
-    assert_eq!(
-        symlink_canonicalize(Path::new("/non/existent/path/to/file")),
-        None
-    );
-}
-
 fn normalize_path(arg: &OsStr) -> OsString {
     let path = Path::new(arg);
 
@@ -288,24 +175,6 @@ fn normalize_path(arg: &OsStr) -> OsString {
     }
 }
 
-#[test]
-fn test_normalize_path() {
-    assert_eq!(normalize_path(&OsString::from("/".to_string())), "/");
-    assert_eq!(normalize_path(&OsString::from("/../.".to_string())), "/");
-    assert_eq!(normalize_path(&OsString::from("/usr".to_string())), "/usr");
-    assert_eq!(normalize_path(&OsString::from("/usr/".to_string())), "/usr");
-    assert_eq!(
-        normalize_path(&OsString::from("/home/../usr".to_string())),
-        "/usr"
-    );
-    assert_eq!(normalize_path(&OsString::from("".to_string())), "");
-    assert_eq!(normalize_path(&OsString::from("foo".to_string())), "foo");
-    assert_eq!(
-        normalize_path(&OsString::from("/tmp/�/".to_string())),
-        "/tmp/�/"
-    );
-}
-
 fn filter_arguments(
     args: impl Iterator<Item = OsString>,
     protected_paths: &[PathBuf],
@@ -319,105 +188,6 @@ fn filter_arguments(
         }
     }
     filtered_args
-}
-
-#[test]
-fn test_filter_arguments() {
-    // Simple cases
-    assert_eq!(
-        filter_arguments(
-            vec![OsString::from("/safe".to_string())].into_iter(),
-            &vec![PathBuf::from("/safe")]
-        ),
-        Vec::<OsString>::new()
-    );
-    assert_eq!(
-        filter_arguments(
-            vec![
-                OsString::from("/safe".to_string()),
-                OsString::from("/unsafe".to_string())
-            ]
-            .into_iter(),
-            &vec![PathBuf::from("/safe")]
-        ),
-        vec![OsString::from("/unsafe".to_string())]
-    );
-
-    // Degenerate cases
-    assert_eq!(
-        filter_arguments(Vec::<OsString>::new().into_iter(), &Vec::<PathBuf>::new()),
-        Vec::<OsString>::new()
-    );
-    assert_eq!(
-        filter_arguments(
-            vec![
-                OsString::from("/safe".to_string()),
-                OsString::from("/unsafe".to_string())
-            ]
-            .into_iter(),
-            &Vec::<PathBuf>::new()
-        ),
-        vec![
-            OsString::from("/safe".to_string()),
-            OsString::from("/unsafe".to_string())
-        ]
-    );
-    assert_eq!(
-        filter_arguments(
-            Vec::<OsString>::new().into_iter(),
-            &vec![PathBuf::from("/safe")]
-        ),
-        Vec::<OsString>::new()
-    );
-
-    // Relative path
-    assert_eq!(
-        filter_arguments(
-            vec![
-                OsString::from("/../".to_string()),
-                OsString::from("/unsafe".to_string())
-            ]
-            .into_iter(),
-            &vec![PathBuf::from("/")]
-        ),
-        vec![OsString::from("/unsafe".to_string())]
-    );
-
-    // Symlink tests
-    {
-        use std::os::unix::fs;
-        use tempfile::tempdir;
-
-        let dir = tempdir().unwrap();
-        let empty_file = dir.path().join("empty");
-        File::create(&empty_file).unwrap();
-
-        // Normal symlinks should not be protected.
-        let unprotected_symlink = dir.path().join("unprotected_symlink");
-        fs::symlink(&empty_file, &unprotected_symlink).unwrap();
-
-        // A symlink explicitly listed in a config file should be protected.
-        let protected_symlink = dir.path().join("protected_symlink");
-        fs::symlink(&empty_file, &protected_symlink).unwrap();
-
-        // A symlink to a protected file should not be protected itself.
-        let symlink_to_protected_file = dir.path().join("usr");
-        fs::symlink("/usr", &symlink_to_protected_file).unwrap();
-
-        assert_eq!(
-            filter_arguments(
-                vec![
-                    OsString::from(&empty_file),
-                    OsString::from(&unprotected_symlink),
-                    OsString::from(&protected_symlink),
-                    OsString::from(&symlink_to_protected_file),
-                ]
-                .into_iter(),
-                &vec![PathBuf::from("/usr"), PathBuf::from(&protected_symlink)]
-            ),
-            vec![empty_file, unprotected_symlink, symlink_to_protected_file]
-        );
-    }
 }
 
 fn read_config_files(globals: &[&str], locals: &[&str]) -> Vec<PathBuf> {
@@ -448,39 +218,6 @@ fn read_config_files(globals: &[&str], locals: &[&str]) -> Vec<PathBuf> {
     protected_paths
 }
 
-#[test]
-fn test_read_config_files() {
-    use std::io::Write;
-    use tempfile::tempdir;
-
-    let dir = tempdir().unwrap();
-    let file_path1 = dir.path().join("home");
-    writeln!(File::create(&file_path1).unwrap(), "/home").unwrap();
-    let file_path2 = dir.path().join("tmp");
-    writeln!(File::create(&file_path2).unwrap(), "/tmp").unwrap();
-
-    // Empty config
-    assert_eq!(read_config_files(&[], &[]).len(), DEFAULT_PATHS.len());
-
-    // Sorted
-    assert_eq!(
-        read_config_files(
-            &[file_path2.to_str().unwrap(), file_path1.to_str().unwrap()],
-            &[]
-        ),
-        vec![PathBuf::from("/home"), PathBuf::from("/tmp")]
-    );
-
-    // Duplicate lines
-    assert_eq!(
-        read_config_files(
-            &[file_path1.to_str().unwrap(), file_path1.to_str().unwrap()],
-            &[]
-        ),
-        vec![PathBuf::from("/home")]
-    );
-}
-
 fn run(
     rm_binary: &str,
     args: impl Iterator<Item = OsString>,
@@ -503,105 +240,6 @@ fn run(
     }
 }
 
-#[test]
-fn test_run() {
-    use std::io::Write;
-    use tempfile::tempdir;
-
-    let dir = tempdir().unwrap();
-    let empty_file = dir.path().join("empty").to_str().unwrap().to_string();
-    File::create(&empty_file).unwrap();
-    let missing_file = dir.path().join("missing").to_str().unwrap().to_string();
-    let file1 = dir.path().join("file1").to_str().unwrap().to_string();
-    let file2 = dir.path().join("file2").to_str().unwrap().to_string();
-    File::create(&file1).unwrap();
-    File::create(&file2).unwrap();
-
-    // Trying to delete a directory without "-r" should fail.
-    assert_eq!(
-        run(
-            REAL_RM,
-            vec![OsString::from(dir.path())].into_iter(),
-            &[],
-            &[]
-        ),
-        1
-    );
-
-    // One file to delete, one directory to ignore.
-    assert_eq!(Path::new(&empty_file).exists(), true);
-    assert_eq!(
-        run(
-            REAL_RM,
-            vec![
-                OsString::from(&empty_file),
-                OsString::from("/usr".to_string())
-            ]
-            .into_iter(),
-            &[],
-            &[]
-        ),
-        0
-    );
-    assert_eq!(Path::new(&empty_file).exists(), false);
-
-    // When the real rm can't be found, run() fails.
-    File::create(&empty_file).unwrap();
-    assert_eq!(Path::new(&empty_file).exists(), true);
-    assert_eq!(
-        run(
-            &missing_file,
-            vec![OsString::from(&empty_file)].into_iter(),
-            &[],
-            &[]
-        ),
-        1
-    );
-    assert_eq!(Path::new(&empty_file).exists(), true);
-
-    // Trying to delete a missing file should fail.
-    assert_eq!(
-        run(
-            REAL_RM,
-            vec![OsString::from(&missing_file)].into_iter(),
-            &[],
-            &[]
-        ),
-        1
-    );
-
-    // The "--help" option should work.
-    assert_eq!(
-        run(
-            REAL_RM,
-            vec![OsString::from("--help".to_string())].into_iter(),
-            &[],
-            &[]
-        ),
-        0
-    );
-
-    // The contents of a directory can be protected using a wildcard.
-    let config_file = dir.path().join("config").to_str().unwrap().to_string();
-    writeln!(
-        File::create(&config_file).unwrap(),
-        "{}",
-        dir.path().join("*").to_str().unwrap()
-    )
-    .unwrap();
-    assert_eq!(
-        run(
-            REAL_RM,
-            vec![OsString::from(&file1), OsString::from(&file2)].into_iter(),
-            &[&config_file],
-            &[]
-        ),
-        1
-    );
-    assert_eq!(Path::new(&file1).exists(), true);
-    assert_eq!(Path::new(&file2).exists(), true);
-}
-
 fn ensure_real_rm_is_callable() -> io::Result<()> {
     // Make sure we're not calling ourselves recursively.
     if fs::canonicalize(REAL_RM)? == fs::canonicalize(std::env::current_exe()?)? {
@@ -609,11 +247,6 @@ fn ensure_real_rm_is_callable() -> io::Result<()> {
         process::exit(1);
     }
     Ok(())
-}
-
-#[test]
-fn test_ensure_real_rm_is_callable() {
-    assert!(ensure_real_rm_is_callable().is_ok());
 }
 
 fn main() {
