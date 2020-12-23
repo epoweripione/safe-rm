@@ -3,4 +3,3 @@ Manual test suite before a release
 - remove a missing file and make sure the return value is nonzero
 - touch a file and delete it
 - run "safe-rm --help" and make sure it returns the rm usage
-- run "man safe-rm" and skim the manual for obvious mistakes
