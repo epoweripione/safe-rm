@@ -8,10 +8,10 @@
     git push --follow-tags
 
 - build the tarball using `make dist`
-- upload the tarball to Launchpad (empty changelog, fill in release notes):
+- upload the tarball to Launchpad (copy changelog entries, fill in release notes):
 
 lp-project-upload safe-rm VERSION safe-rm-VERSION.tar.gz
 
 - update and upload the Debian package
-- add a new announcement on Launchpad: https://launchpad.net/safe-rm/+announce
+- add a new announcement on Launchpad (release notes): https://launchpad.net/safe-rm/+announce
 - create milestone for next release on Launchpad: https://launchpad.net/safe-rm/trunk/+addmilestone
