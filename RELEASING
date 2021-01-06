@@ -1,10 +1,10 @@
 - update and date the changelog
-- bump the version number in the source file
+- bump the version number in the Cargo.toml
 - run `make test` and do the manual tests in TESTING
 
 - tag and push the code
 
-    git tag -s safe-rm-VERSION -m "New upstream release"
+    git tag -s safe-rm-VERSION -m "VERSION release"
     git push --follow-tags
 
 - build the tarball using `make dist`
