@@ -1,6 +1,6 @@
 [package]
 name = "safe-rm"
-version = "1.0.0"
+version = "1.1.0"
 authors = ["Francois Marier <francois@fmarier.org>"]
 edition = "2018"
 description = "preventing the accidental deletion of important files"

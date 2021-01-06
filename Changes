@@ -1,3 +1,9 @@
+1.1.0 (2021-01-05)
+  - Prevent the deletion of symlinks protected explicitly (bug #899721).
+  - Ship a desktop file to add a context menu shortcut (bug #1905830).
+  - Remove /usr/bin/env from the default list (reverts bug #1854102).
+  - Expanded unit test coverage.
+
 1.0.0 (2020-11-26)
   - Rewrite in Rust (bug #1854103).
   - Add a recursion limit of 256 paths for glob expansion (bug #901916).
