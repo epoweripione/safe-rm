@@ -27,5 +27,6 @@ test:
 lint:
 	cargo-geiger --all-dependencies --quiet true
 	cargo audit --deny-warnings --quiet
+	cargo outdated --root-deps-only
 	cargo clippy --quiet
 	cargo tarpaulin --fail-under 90
