@@ -24,12 +24,22 @@ use std::io::{self, BufRead};
 use std::path::{self, Path, PathBuf};
 use std::process;
 
+use serde_derive::Deserialize;
+use std::io::prelude::*;
+
 const GLOBAL_CONFIG: &str = "/etc/safe-rm.conf";
 const LOCAL_GLOBAL_CONFIG: &str = "/usr/local/etc/safe-rm.conf";
 const USER_CONFIG: &str = ".config/safe-rm";
 const LEGACY_USER_CONFIG: &str = ".safe-rm";
 
 const REAL_RM: &str = "/bin/rm";
+
+const SAFE_RM_CONFIG: &str = "/etc/safe-rm.toml";
+
+#[derive(Debug, Deserialize)]
+struct Config {
+    rm_binary: Option<String>,
+}
 
 const DEFAULT_PATHS: &[&str] = &[
     "/bin",
@@ -218,8 +228,39 @@ fn read_config_files(globals: &[&str], locals: &[&str]) -> Vec<PathBuf> {
     protected_paths
 }
 
-fn run(
-    rm_binary: &str,
+// fn run(
+//     rm_binary: &str,
+//     args: impl Iterator<Item = OsString>,
+//     globals: &[&str],
+//     locals: &[&str],
+// ) -> i32 {
+//     let protected_paths = read_config_files(globals, locals);
+//     let filtered_args = filter_arguments(args, &protected_paths);
+
+//     // Run the real rm command, returning with the same error code.
+//     match process::Command::new(rm_binary)
+//         .args(&filtered_args)
+//         .status()
+//     {
+//         Ok(status) => status.code().unwrap_or(1),
+//         Err(_) => {
+//             println!("safe-rm: Failed to run the {} command.", REAL_RM);
+//             1
+//         }
+//     }
+// }
+
+// fn ensure_real_rm_is_callable() -> io::Result<()> {
+//     // Make sure we're not calling ourselves recursively.
+//     if fs::canonicalize(REAL_RM)? == fs::canonicalize(std::env::current_exe()?)? {
+//         println!("safe-rm: Cannot find the real \"rm\" binary.");
+//         process::exit(1);
+//     }
+//     Ok(())
+// }
+
+fn run_binary(
+    rm_binary: String,
     args: impl Iterator<Item = OsString>,
     globals: &[&str],
     locals: &[&str],
@@ -228,36 +269,92 @@ fn run(
     let filtered_args = filter_arguments(args, &protected_paths);
 
     // Run the real rm command, returning with the same error code.
-    match process::Command::new(rm_binary)
+    match process::Command::new(&rm_binary)
         .args(&filtered_args)
         .status()
     {
         Ok(status) => status.code().unwrap_or(1),
         Err(_) => {
-            println!("safe-rm: Failed to run the {} command.", REAL_RM);
+            
+            println!("safe-rm: Failed to run the {} command.", &rm_binary);
             1
         }
     }
 }
 
-fn ensure_real_rm_is_callable() -> io::Result<()> {
+fn ensure_real_rm_binary_is_callable(real_rm: &mut String) -> io::Result<()> {
     // Make sure we're not calling ourselves recursively.
-    if fs::canonicalize(REAL_RM)? == fs::canonicalize(std::env::current_exe()?)? {
-        println!("safe-rm: Cannot find the real \"rm\" binary.");
+    if fs::canonicalize(&real_rm)? == fs::canonicalize(std::env::current_exe()?)? {
+        println!("safe-rm: Cannot find the real \"{}\" binary.", &real_rm);
         process::exit(1);
     }
     Ok(())
 }
 
 fn main() {
-    if let Err(e) = ensure_real_rm_is_callable() {
+    // if let Err(e) = ensure_real_rm_is_callable() {
+    //     println!(
+    //         "safe-rm: Cannot check that the real \"rm\" binary is callable: {}",
+    //         e
+    //     );
+    // }
+    // process::exit(run(
+    //     REAL_RM,
+    //     std::env::args_os().skip(1),
+    //     &[GLOBAL_CONFIG, LOCAL_GLOBAL_CONFIG],
+    //     &[USER_CONFIG, LEGACY_USER_CONFIG],
+    // ));
+
+    let mut real_rm_binary: String = "".to_string();
+
+    // For security reasons the real `rm` binary maybe renamed, e.g.: `/bin/rm.real`
+    // Get real `rm` binary from `/etc/safe-rm.toml`
+    // e.g.: rm_binary = "/bin/rm.real"
+    let mut toml_content = String::new();
+    if Path::new(SAFE_RM_CONFIG).exists() {
+        match File::open(SAFE_RM_CONFIG) {
+            Ok(mut file) => {
+                file.read_to_string(&mut toml_content).unwrap();
+            },
+            Err(error) => {
+                println!("Error opening file {}: {}", SAFE_RM_CONFIG, error);
+            },
+        }
+    }
+
+    if ! toml_content.is_empty() {
+        let config: Config = toml::from_str(&toml_content).unwrap();
+        let toml_real_rm = config.rm_binary.unwrap();
+        if ! toml_real_rm.is_empty() {
+            real_rm_binary = toml_real_rm;
+        }
+    }
+
+    // Get real `rm` binary from enviroment variable `SAFE_RM_REAL_RM_BINARY`
+    // e.g.: export SAFE_RM_REAL_RM="/bin/rm.real"
+    if real_rm_binary.is_empty() {
+        if let Ok(value) = std::env::var("SAFE_RM_REAL_RM") {
+            let path  = normalize_path(Path::new(&value).as_os_str());
+            real_rm_binary = path.to_str().unwrap().to_string();
+        }
+    }
+
+    if real_rm_binary.is_empty() {
+        real_rm_binary = String::from(REAL_RM);
+    }
+
+    if let Err(e) = ensure_real_rm_binary_is_callable(&mut real_rm_binary) {
         println!(
-            "safe-rm: Cannot check that the real \"rm\" binary is callable: {}",
+            "safe-rm: Cannot check that the real \"{}\" binary is callable: {}",
+            real_rm_binary,
             e
         );
     }
-    process::exit(run(
-        REAL_RM,
+
+    // println!("{}", real_rm_binary);
+
+    process::exit(run_binary(
+        real_rm_binary,
         std::env::args_os().skip(1),
         &[GLOBAL_CONFIG, LOCAL_GLOBAL_CONFIG],
         &[USER_CONFIG, LEGACY_USER_CONFIG],

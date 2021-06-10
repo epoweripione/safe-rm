@@ -1,3 +1,6 @@
+1.2.0 (2021-06-10)
+  - Add config & enviroment variable support for real `rm` binary.
+
 1.1.0 (2021-01-05)
   - Prevent the deletion of symlinks protected explicitly (bug #899721).
   - Ship a desktop file to add a context menu shortcut (bug #1905830).

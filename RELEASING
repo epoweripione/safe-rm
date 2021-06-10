@@ -2,6 +2,20 @@
 - bump the version number in the Cargo.toml
 - run `make test` and do the manual tests in TESTING
 
+- build the release
+
+    cargo build --release
+
+- minimizing binary size: https://github.com/johnthagen/min-sized-rust
+    # strip Symbols from Binary
+    strip -s target/release/safe-rm
+
+    # Compress the binary
+    # It should be noted that there have been times that 
+    #   UPX-packed binaries have flagged heuristic-based anti-virus software 
+    #   because malware often uses UPX.
+    upx --best --lzma target/release/safe-rm
+
 - tag and push the code
 
     git tag -s safe-rm-VERSION -m "VERSION release"
