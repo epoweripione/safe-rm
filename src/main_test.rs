@@ -308,7 +308,7 @@ mod tests {
 
     #[test]
     fn run() {
-        use super::super::run;
+        use super::super::run_binary;
         use super::super::REAL_RM;
 
         use std::io::Write;
@@ -325,8 +325,8 @@ mod tests {
 
         // Trying to delete a directory without "-r" should fail.
         assert_eq!(
-            run(
-                REAL_RM,
+            run_binary(
+                REAL_RM.to_string(),
                 vec![OsString::from(dir.path())].into_iter(),
                 &[],
                 &[]
@@ -337,8 +337,8 @@ mod tests {
         // One file to delete, one directory to ignore.
         assert_eq!(Path::new(&empty_file).exists(), true);
         assert_eq!(
-            run(
-                REAL_RM,
+            run_binary(
+                REAL_RM.to_string(),
                 vec![
                     OsString::from(&empty_file),
                     OsString::from("/usr".to_string())
@@ -355,8 +355,8 @@ mod tests {
         File::create(&empty_file).unwrap();
         assert_eq!(Path::new(&empty_file).exists(), true);
         assert_eq!(
-            run(
-                &missing_file,
+            run_binary(
+                missing_file,
                 vec![OsString::from(&empty_file)].into_iter(),
                 &[],
                 &[]
@@ -367,8 +367,8 @@ mod tests {
 
         // Trying to delete a missing file should fail.
         assert_eq!(
-            run(
-                REAL_RM,
+            run_binary(
+                REAL_RM.to_string(),
                 vec![OsString::from(&missing_file)].into_iter(),
                 &[],
                 &[]
@@ -378,8 +378,8 @@ mod tests {
 
         // The "--help" option should work.
         assert_eq!(
-            run(
-                REAL_RM,
+            run_binary(
+                REAL_RM.to_string(),
                 vec![OsString::from("--help".to_string())].into_iter(),
                 &[],
                 &[]
@@ -396,8 +396,8 @@ mod tests {
         )
         .unwrap();
         assert_eq!(
-            run(
-                REAL_RM,
+            run_binary(
+                REAL_RM.to_string(),
                 vec![OsString::from(&file1), OsString::from(&file2)].into_iter(),
                 &[&config_file],
                 &[]
@@ -409,9 +409,11 @@ mod tests {
     }
 
     #[test]
-    fn ensure_real_rm_is_callable() {
-        use super::super::ensure_real_rm_is_callable;
+    fn ensure_real_rm_binary_is_callable() {
+        use super::super::ensure_real_rm_binary_is_callable;
+        use super::super::REAL_RM;
 
-        assert!(ensure_real_rm_is_callable().is_ok());
+        let mut real_rm_binary: String = String::from(REAL_RM);
+        assert!(ensure_real_rm_binary_is_callable(&mut real_rm_binary).is_ok());
     }
 }
